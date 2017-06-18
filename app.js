@@ -136,3 +136,4 @@ function insertIntoDB () {
   setInterval (function () {var timeNow = new Date(); console.log(timeNow);}, 1000);
 } */
 console.log('Listening for http requests on port ' + port);
+console.log('pocu3 in use');
