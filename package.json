@@ -1,0 +1,31 @@
+{
+  "name": "newProject",
+  "description": "newProject",
+  "keywords": [
+
+  ],
+  "scripts": {
+    "start": "node app.js"
+  },
+  "version": "0.3.2",
+  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/meanomaniac/newProject"
+  },
+  "dependencies": {
+    "connect": "1.4.1",
+    "facebook-sdk": "^0.3.2",
+    "mysql": "^2.13.0"
+  },
+
+  "licenses": [
+    {
+      "type": "Apache License, Version 2.0",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    }
+  ],
+  "engines": {
+    "node": ">= 6.0.0"
+  }
+}
