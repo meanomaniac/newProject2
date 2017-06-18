@@ -11,6 +11,7 @@ var timeNow;
 
 var con = mysql.createConnection({
   host: "pocu1.ceixhvsknluf.us-east-2.rds.amazonaws.com",
+  post: "3306",
   user: "SYSTEM",
   password: "mysqlmysql",
   database : 'pocu1'
@@ -18,7 +19,7 @@ var con = mysql.createConnection({
 
 con.connect(function(err) {
   if (err) throw err;
-  console.log("Connected to Database!"); 
+  console.log("Connected to Database!");
 });
 
 connect()
