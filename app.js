@@ -10,11 +10,11 @@ var mysql = require('mysql');
 var timeNow;
 
 var con = mysql.createConnection({
-  host: "pocu1.ceixhvsknluf.us-east-2.rds.amazonaws.com",
+  host: "pocu3.ceixhvsknluf.us-east-2.rds.amazonaws.com",
   post: "3306",
   user: "SYSTEM",
   password: "mysqlmysql",
-  database : 'pocu1'
+  database : 'pocu3'
 });
 
 con.connect(function(err) {
@@ -52,10 +52,10 @@ connect()
       res.end('<a href="' + req.facebook.getLoginUrl() + '">Login</a>');
     }
   //getPeriodicPostsData ();
-  // getBatchData();
-  getPosts();
+  getBatchData();
+  // getPosts();
   // whatIsTheTimeNow();
-  insertIntoDB ();
+   insertIntoDB ();
 
   })
   .listen(port);
@@ -115,7 +115,7 @@ function getBatchData() {
         ]
     },
       function (response){
-          console.log(response);
+          console.log(response[1].body);
       }
     ), {scope: 'publish_actions'};
 }
