@@ -9,6 +9,15 @@ var newReq;
 var mysql = require('mysql');
 var timeNow;
 var resObj;
+var emailData = [];
+var nodemailer = require('nodemailer');
+var transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'applepulpfiction@gmail.com',
+    pass: 'penpineapple'
+  }
+});
 
 var con = mysql.createConnection({
   host: "pocu3.ceixhvsknluf.us-east-2.rds.amazonaws.com",
@@ -53,7 +62,8 @@ connect()
       res.end('<a href="' + req.facebook.getLoginUrl() + '">Login</a>');
     }
   //getPeriodicPostsData ();
-   getBatchData();
+  getBatchData();
+  // terminateApp();
   // getPosts();
   // whatIsTheTimeNow();
   // insertIntoDB ();
@@ -109,20 +119,21 @@ function getPostData() {
 }
 
 function getBatchData() {
+
   newReq.facebook.api('', 'POST', {
         batch: [
             { method: 'GET', relative_url: '/146505212039213/posts', name: 'UNILAD' }
-            , { method: 'GET', depends_on: 'UNILAD', relative_url: '?ids={result=UNILAD:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link' }
+            , { method: 'GET', depends_on: 'UNILAD', relative_url: '?ids={result=UNILAD:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
            ,{ method: 'GET', relative_url: '/199098633470668/posts', name: 'LADbible' }
-           , { method: 'GET', depends_on: 'LADbible', relative_url: '?ids={result=LADbible:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link' }
+           , { method: 'GET', depends_on: 'LADbible', relative_url: '?ids={result=LADbible:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
            ,{ method: 'GET', relative_url: '/179417642100354/posts', name: 'NTDTelevision' }
-           , { method: 'GET', depends_on: 'NTDTelevision', relative_url: '?ids={result=NTDTelevision:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link' }
+           , { method: 'GET', depends_on: 'NTDTelevision', relative_url: '?ids={result=NTDTelevision:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
            ,{ method: 'GET', relative_url: '/363765800431935/posts', name: 'ViralThread' }
-           , { method: 'GET', depends_on: 'ViralThread', relative_url: '?ids={result=ViralThread:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link' }
+           , { method: 'GET', depends_on: 'ViralThread', relative_url: '?ids={result=ViralThread:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
            ,{ method: 'GET', relative_url: '/21785951839/posts', name: '9GAG' }
-           , { method: 'GET', depends_on: '9GAG', relative_url: '?ids={result=9GAG:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link' }
+           , { method: 'GET', depends_on: '9GAG', relative_url: '?ids={result=9GAG:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
            ,{ method: 'GET', relative_url: '/334191996715482/posts', name: 'TheDodo' }
-           , { method: 'GET', depends_on: 'TheDodo', relative_url: '?ids={result=TheDodo:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link' }
+           , { method: 'GET', depends_on: 'TheDodo', relative_url: '?ids={result=TheDodo:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
 
         ]
     },
@@ -133,17 +144,75 @@ function getBatchData() {
                 for (var property in resObj) {
                     if (resObj.hasOwnProperty(property)) {
                         // console.log(resObj[property]);
-                        console.log(resObj[property].id);
-                        if (resObj[property].shares!=undefined) {
-                          console.log(resObj[property].shares.count);
+                        if (resObj[property]!=undefined) {
+                        //  console.log("id: " + resObj[property].id);
                         }
                         else {
-                          console.log("null");
+                        //  console.log("id: " +"null");
                         }
-                        console.log(resObj[property].likes.summary.total_count);
-                        console.log(resObj[property].comments.summary.total_count);
-                        console.log(resObj[property].link);
-                        console.log("next");
+
+                        if (resObj[property].shares!=undefined) {
+                        //  console.log("shares: " + resObj[property].shares.count);
+                          if (parseInt(resObj[property].shares.count) > 80000) {
+                            emailData.push("shares: " + resObj[property].shares.count);
+                          }
+                        }
+                        else {
+                        //  console.log("shares: " +"null");
+                        }
+
+                        if (resObj[property].likes.summary!=undefined) {
+                        //  console.log("likes: " + resObj[property].likes.summary.total_count);
+                          if (parseInt(resObj[property].likes.summary.total_count) > 200000) {
+                            emailData.push("likes: " + resObj[property].likes.summary.total_count);
+                          }
+                        }
+                        else {
+                        //  console.log("likes: " +"null");
+                        }
+
+                        if (resObj[property].comments.summary!=undefined) {
+                        //  console.log("comments: "+resObj[property].comments.summary.total_count);
+                          if (parseInt(resObj[property].comments.summary.total_count) > 50000) {
+                            emailData.push("comments: "+resObj[property].comments.summary.total_count);
+                          }
+                        }
+                        else {
+                        //  console.log("comments: " +"null");
+                        }
+
+                        if (resObj[property]!=undefined) {
+                        //  console.log("link: "+resObj[property].link);
+                          if (emailData.length > 0) {
+                            emailData.push("link: "+resObj[property].link);
+                          }
+                        }
+                        else {
+                      //    console.log("link: " +"null");
+                        }
+                        if (resObj[property]!=undefined) {
+                        //  console.log("created time: " + resObj[property].created_time);
+                          if (emailData.length > 0) {
+                            emailData.push("created time: " + resObj[property].created_time);
+                          }
+                        }
+                        else {
+                        //  console.log("created time: " +"null");
+                        }
+                        if (resObj[property]!=undefined) {
+                        //  console.log("message: " + resObj[property].message);
+                          if (emailData.length > 0) {
+                            emailData.push("message: " + resObj[property].message);
+                          }
+                        }
+                        else {
+                        //  console.log("message: " +"null");
+                        }
+                      //  console.log("next");
+                      if (emailData.length > 0) {
+                        sendEmail(emailData);
+                        emailData =[];
+                      }
                     }
                 }
           }
@@ -156,7 +225,7 @@ function insertIntoDB () {
   /* to use variables set a '?' in place of them and then set the value for it in the second paramter of the con.query method -
   if more than one variable, then use multiple question marks and then replace the second paramter of the con.query method with an array
   - see https://stackoverflow.com/questions/41168942/how-to-input-a-nodejs-variable-into-an-sql-qyery for more details */
-  var sql = "INSERT INTO postMetaData (pageName, postId, createdTime, message, link) VALUES ('testPage', 'testId4', ? , 'testMsg', 'testLink')";
+ var sql = "INSERT INTO postMetaData (pageName, postId, createdTime, message, link) VALUES ('testPage', 'testId4', ? , 'testMsg', 'testLink')";
   con.query(sql, timeNow, function (err, result) {
     if (err) throw err;
     console.log("1 record inserted");
@@ -174,9 +243,35 @@ function getPages() {
     ), {scope: 'publish_actions'};
   }
 }
+function terminateApp () {
+  setInterval (function () {
+    con.query("SELECT pageName FROM postMetaData WHERE link = 'testLink'", function (err, result) {
+        console.log(result[0].pageName);
+          if (result[0].pageName=="testPage") {
+            console.log('App Terminated successfully');
+            process.exit();
+        }
+      });
+  }, 5000);
+}
 
+function sendEmail (emailData) {
+  console.log(emailData);
+  var mailOptions = {
+    from: 'applepulpfiction@gmail.com',
+    to: 'applepulpfiction@gmail.com',
+    subject: 'potential vid',
+    text: ' ' + emailData
+  };
+  transporter.sendMail(mailOptions, function(error, info){
+    if (error) {
+      console.log(error);
+    } else {
+      console.log('Email sent: ' + info.response);
+    }
+  });
+}
 /* function whatIsTheTimeNow () {
   setInterval (function () {var timeNow = new Date(); console.log(timeNow);}, 1000);
 } */
 console.log('Listening for http requests on port ' + port);
-console.log('pocu3 in use');

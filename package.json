@@ -1,9 +1,7 @@
 {
   "name": "newProject",
   "description": "newProject",
-  "keywords": [
-
-  ],
+  "keywords": [],
   "scripts": {
     "start": "node app.js"
   },
@@ -16,9 +14,9 @@
   "dependencies": {
     "connect": "1.4.1",
     "facebook-sdk": "^0.3.2",
-    "mysql": "^2.13.0"
+    "mysql": "^2.13.0",
+    "nodemailer": "^4.0.1"
   },
-
   "licenses": [
     {
       "type": "Apache License, Version 2.0",
