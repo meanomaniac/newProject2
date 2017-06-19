@@ -8,6 +8,7 @@ var gettingData;
 var newReq;
 var mysql = require('mysql');
 var timeNow;
+var resObj;
 
 var con = mysql.createConnection({
   host: "pocu3.ceixhvsknluf.us-east-2.rds.amazonaws.com",
@@ -52,10 +53,11 @@ connect()
       res.end('<a href="' + req.facebook.getLoginUrl() + '">Login</a>');
     }
   //getPeriodicPostsData ();
-  getBatchData();
+   getBatchData();
   // getPosts();
   // whatIsTheTimeNow();
-   insertIntoDB ();
+  // insertIntoDB ();
+  // getPages();
 
   })
   .listen(port);
@@ -73,9 +75,9 @@ function stopPeriodicPostsData() {
 }
 function getPosts() {
   if (!postsReceived) {
-    newReq.facebook.api('/posts/', 'GET', {ids: '146505212039213,199098633470668,179417642100354,363765800431935,21785951839'},
+    newReq.facebook.api('/posts/', 'GET', {ids: '146505212039213,199098633470668,179417642100354,363765800431935,21785951839,334191996715482'},
                           function (response){
-                              //console.log(response);
+                              console.log(response);
                               console.log("id: " + response["146505212039213"].data[0].id +
                               ", created time: " + response["146505212039213"].data[0].created_time +
                               ", message: " + response["146505212039213"].data[0].message);
@@ -109,13 +111,42 @@ function getPostData() {
 function getBatchData() {
   newReq.facebook.api('', 'POST', {
         batch: [
-            { method: 'GET', relative_url: '/146505212039213/posts', name: 'unilad' }
-            , { method: 'GET', depends_on: 'unilad', relative_url: '?ids={result=unilad:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link' }
-           /* ,  { method: 'GET', relative_url: '{result=first:$.data.0.id}'} */
+            { method: 'GET', relative_url: '/146505212039213/posts', name: 'UNILAD' }
+            , { method: 'GET', depends_on: 'UNILAD', relative_url: '?ids={result=UNILAD:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link' }
+           ,{ method: 'GET', relative_url: '/199098633470668/posts', name: 'LADbible' }
+           , { method: 'GET', depends_on: 'LADbible', relative_url: '?ids={result=LADbible:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link' }
+           ,{ method: 'GET', relative_url: '/179417642100354/posts', name: 'NTDTelevision' }
+           , { method: 'GET', depends_on: 'NTDTelevision', relative_url: '?ids={result=NTDTelevision:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link' }
+           ,{ method: 'GET', relative_url: '/363765800431935/posts', name: 'ViralThread' }
+           , { method: 'GET', depends_on: 'ViralThread', relative_url: '?ids={result=ViralThread:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link' }
+           ,{ method: 'GET', relative_url: '/21785951839/posts', name: '9GAG' }
+           , { method: 'GET', depends_on: '9GAG', relative_url: '?ids={result=9GAG:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link' }
+           ,{ method: 'GET', relative_url: '/334191996715482/posts', name: 'TheDodo' }
+           , { method: 'GET', depends_on: 'TheDodo', relative_url: '?ids={result=TheDodo:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link' }
+
         ]
     },
       function (response){
-          console.log(response[1].body);
+        for (var i=1; i<12; i=i+2) {
+              resObj = JSON.parse(response[i].body);
+              //  console.log(response);
+                for (var property in resObj) {
+                    if (resObj.hasOwnProperty(property)) {
+                        // console.log(resObj[property]);
+                        console.log(resObj[property].id);
+                        if (resObj[property].shares!=undefined) {
+                          console.log(resObj[property].shares.count);
+                        }
+                        else {
+                          console.log("null");
+                        }
+                        console.log(resObj[property].likes.summary.total_count);
+                        console.log(resObj[property].comments.summary.total_count);
+                        console.log(resObj[property].link);
+                        console.log("next");
+                    }
+                }
+          }
       }
     ), {scope: 'publish_actions'};
 }
@@ -130,6 +161,18 @@ function insertIntoDB () {
     if (err) throw err;
     console.log("1 record inserted");
   });
+}
+
+function getPages() {
+  if (!postsReceived) {
+    newReq.facebook.api('/', 'GET', {ids: '146505212039213,199098633470668,179417642100354,363765800431935,21785951839,334191996715482',
+                            fields: 'name,id,fan_count'
+                          },
+                          function (response){
+                              console.log(response);
+                          }
+    ), {scope: 'publish_actions'};
+  }
 }
 
 /* function whatIsTheTimeNow () {
