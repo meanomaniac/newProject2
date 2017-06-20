@@ -61,64 +61,18 @@ connect()
     } else {
       res.end('<a href="' + req.facebook.getLoginUrl() + '">Login</a>');
     }
-  //getPeriodicPostsData ();
-  getBatchData();
+
   // terminateApp();
   // getPosts();
-  // whatIsTheTimeNow();
   // insertIntoDB ();
-  // getPages();
+  checkDB("SELECT EXISTS(SELECT postId FROM postMetaData WHERE postId='testId5')", function (dbResult) {
+    console.log(dbResult);
+  });
 
   })
   .listen(port);
 
-function getPeriodicPostsData() {
-      postsReceived = false;
-      // gettingPosts = setInterval (getPosts, 500);
-      getPosts();
-      gettingDataForPosts = setInterval (function () {getPostData()}, 500);
-      gettingData = setTimeout (function () {getPeriodicPostsData()}, 5000);
-  }
-function stopPeriodicPostsData() {
-    clearTimeout (gettingData);
-    console.log('get Stopped');
-}
 function getPosts() {
-  if (!postsReceived) {
-    newReq.facebook.api('/posts/', 'GET', {ids: '146505212039213,199098633470668,179417642100354,363765800431935,21785951839,334191996715482'},
-                          function (response){
-                              console.log(response);
-                              console.log("id: " + response["146505212039213"].data[0].id +
-                              ", created time: " + response["146505212039213"].data[0].created_time +
-                              ", message: " + response["146505212039213"].data[0].message);
-                              // document.getElementById('getfbp').innerHTML=response;
-                          }
-    ), {scope: 'publish_actions'};
-    postsReceived = true;
-  //  clearInterval (gettingPosts);
-  }
-}
-function getPostData() {
-  if (postsReceived) {
-    setTimeout ( function () {newReq.facebook.api('/', 'GET', {ids: '146505212039213_2778304435525931,146505212039213_2785434258146282',
-                        fields: 'id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link'},
-                          function (response){
-                              //console.log(response);
-                              // console.log(response["146505212039213_2778304435525931"]);
-                              console.log("id: " + response["146505212039213_2778304435525931"].id +
-                              ", Shares: " + response["146505212039213_2778304435525931"].shares.count +
-                              ", Likes: " + response["146505212039213_2778304435525931"].likes.summary.total_count +
-                              ", comments: " + response["146505212039213_2778304435525931"].comments.summary.total_count +
-                              ", link: " + response["146505212039213_2778304435525931"].link);
-                            //  document.getElementById('getfbp').innerHTML=response;
-                          }
-    ), {scope: 'publish_actions'};}, 1000);
-   postsReceived = false;
-   clearInterval (gettingDataForPosts);
-  }
-}
-
-function getBatchData() {
 
   newReq.facebook.api('', 'POST', {
         batch: [
@@ -138,88 +92,97 @@ function getBatchData() {
         ]
     },
       function (response){
-        for (var i=1; i<12; i=i+2) {
-              resObj = JSON.parse(response[i].body);
-              //  console.log(response);
-                for (var property in resObj) {
-                    if (resObj.hasOwnProperty(property)) {
-                        // console.log(resObj[property]);
-                        if (resObj[property]!=undefined) {
-                        //  console.log("id: " + resObj[property].id);
-                        }
-                        else {
-                        //  console.log("id: " +"null");
-                        }
-
-                        if (resObj[property].shares!=undefined) {
-                        //  console.log("shares: " + resObj[property].shares.count);
-                          if (parseInt(resObj[property].shares.count) > 80000) {
-                            emailData.push("shares: " + resObj[property].shares.count);
-                          }
-                        }
-                        else {
-                        //  console.log("shares: " +"null");
-                        }
-
-                        if (resObj[property].likes.summary!=undefined) {
-                        //  console.log("likes: " + resObj[property].likes.summary.total_count);
-                          if (parseInt(resObj[property].likes.summary.total_count) > 200000) {
-                            emailData.push("likes: " + resObj[property].likes.summary.total_count);
-                          }
-                        }
-                        else {
-                        //  console.log("likes: " +"null");
-                        }
-
-                        if (resObj[property].comments.summary!=undefined) {
-                        //  console.log("comments: "+resObj[property].comments.summary.total_count);
-                          if (parseInt(resObj[property].comments.summary.total_count) > 50000) {
-                            emailData.push("comments: "+resObj[property].comments.summary.total_count);
-                          }
-                        }
-                        else {
-                        //  console.log("comments: " +"null");
-                        }
-
-                        if (resObj[property]!=undefined) {
-                        //  console.log("link: "+resObj[property].link);
-                          if (emailData.length > 0) {
-                            emailData.push("link: "+resObj[property].link);
-                          }
-                        }
-                        else {
-                      //    console.log("link: " +"null");
-                        }
-                        if (resObj[property]!=undefined) {
-                        //  console.log("created time: " + resObj[property].created_time);
-                          if (emailData.length > 0) {
-                            emailData.push("created time: " + resObj[property].created_time);
-                          }
-                        }
-                        else {
-                        //  console.log("created time: " +"null");
-                        }
-                        if (resObj[property]!=undefined) {
-                        //  console.log("message: " + resObj[property].message);
-                          if (emailData.length > 0) {
-                            emailData.push("message: " + resObj[property].message);
-                          }
-                        }
-                        else {
-                        //  console.log("message: " +"null");
-                        }
-                      //  console.log("next");
-                      if (emailData.length > 0) {
-                        sendEmail(emailData);
-                        emailData =[];
-                      }
-                    }
-                }
-          }
+        parseAndRecordData (response);
       }
     ), {scope: 'publish_actions'};
 }
 
+function parseAndRecordData (response) {
+  for (var i=1; i<12; i=i+2) {
+        resObj = JSON.parse(response[i].body);
+        //  console.log(response);
+          for (var property in resObj) {
+              if (resObj.hasOwnProperty(property)) {
+                  // console.log(resObj[property]);
+                  if (resObj[property]!=undefined) {
+                  //  console.log("id: " + resObj[property].id);
+                  /*  if (! checkIfUntrackedPost (resObj[property].id)) {
+                      // break;
+                    //  console.log("breaking loop");
+                  } */
+
+                  }
+                  else {
+                  //  console.log("id: " +"null");
+                    break;
+                  }
+
+                  if (resObj[property].shares!=undefined) {
+                  //  console.log("shares: " + resObj[property].shares.count);
+                    if (parseInt(resObj[property].shares.count) > 80000) {
+                      emailData.push(" shares: " + resObj[property].shares.count);
+                    }
+                  }
+                  else {
+                  //  console.log("shares: " +"null");
+                  }
+
+                  if (resObj[property].likes.summary!=undefined) {
+                  //  console.log("likes: " + resObj[property].likes.summary.total_count);
+                    if (parseInt(resObj[property].likes.summary.total_count) > 200000) {
+                      emailData.push(" likes: " + resObj[property].likes.summary.total_count);
+                    }
+                  }
+                  else {
+                  //  console.log("likes: " +"null");
+                  }
+
+                  if (resObj[property].comments.summary!=undefined) {
+                  //  console.log("comments: "+resObj[property].comments.summary.total_count);
+                    if (parseInt(resObj[property].comments.summary.total_count) > 50000) {
+                      emailData.push(" comments: "+resObj[property].comments.summary.total_count);
+                    }
+                  }
+                  else {
+                  //  console.log("comments: " +"null");
+                  }
+
+                  if (resObj[property]!=undefined) {
+                  //  console.log("link: "+resObj[property].link);
+                    if (emailData.length > 0) {
+                      emailData.push(" link: "+resObj[property].link);
+                    }
+                  }
+                  else {
+                //    console.log("link: " +"null");
+                  }
+                  if (resObj[property]!=undefined) {
+                  //  console.log("created time: " + resObj[property].created_time);
+                    if (emailData.length > 0) {
+                      emailData.push(" created time: " + resObj[property].created_time);
+                    }
+                  }
+                  else {
+                  //  console.log("created time: " +"null");
+                  }
+                  if (resObj[property]!=undefined) {
+                  //  console.log("message: " + resObj[property].message);
+                    if (emailData.length > 0) {
+                      emailData.push(" message: " + resObj[property].message);
+                    }
+                  }
+                  else {
+                  //  console.log("message: " +"null");
+                  }
+                //  console.log("next");
+                if (emailData.length > 0) {
+                  // sendEmail(emailData);
+                  emailData =[];
+                }
+              }
+          }
+    }
+}
 function insertIntoDB () {
   timeNow = new Date();
   /* to use variables set a '?' in place of them and then set the value for it in the second paramter of the con.query method -
@@ -243,6 +206,7 @@ function getPages() {
     ), {scope: 'publish_actions'};
   }
 }
+
 function terminateApp () {
   setInterval (function () {
     con.query("SELECT pageName FROM postMetaData WHERE link = 'testLink'", function (err, result) {
@@ -271,7 +235,21 @@ function sendEmail (emailData) {
     }
   });
 }
-/* function whatIsTheTimeNow () {
-  setInterval (function () {var timeNow = new Date(); console.log(timeNow);}, 1000);
-} */
+
+function checkDB(query, callback) {
+  con.query(query, function (err, result) {
+      //console.log(result[0][Object.keys(result[0])[0]]);
+        if (result[0][Object.keys(result[0])[0]]) {
+          console.log('Row exists');
+        isPostBeingTracked = true;
+        // postTrackResultAchieved = true;
+          }
+        else {
+        console.log('Row doesn\'t exist');
+        isPostBeingTracked = false;
+        }
+        callback(isPostBeingTracked);
+    });
+}
+
 console.log('Listening for http requests on port ' + port);
