@@ -9,6 +9,7 @@ var newReq;
 var mysql = require('mysql');
 var timeNow;
 var resObj;
+var parsedObj = {id:'', shares:0, likes:0, comments: 0, created_time:'', link:''};
 var emailData = [];
 var nodemailer = require('nodemailer');
 var transporter = nodemailer.createTransport({
@@ -63,11 +64,10 @@ connect()
     }
 
   // terminateApp();
-  // getPosts();
+   getPosts();
+  // setInterval (function () {getPosts();}, 10000);
   // insertIntoDB ();
-  checkDB("SELECT EXISTS(SELECT postId FROM postMetaData WHERE postId='testId5')", function (dbResult) {
-    console.log(dbResult);
-  });
+  // checkDB("SELECT EXISTS(SELECT postId FROM postMetaData WHERE postId='testId5')", function (dbResult) {console.log(dbResult); });
 
   })
   .listen(port);
@@ -92,83 +92,97 @@ function getPosts() {
         ]
     },
       function (response){
-        parseAndRecordData (response);
+        //  console.log(response);
+        for (var i=1; i<12; i=i+2) {
+              resObj = JSON.parse(response[i].body);
+                for (var property in resObj) {
+                  if (resObj.hasOwnProperty(property)) {
+                    resID = resObj[property].id;
+                    if (resID!="empty" && resID!=undefined && resID!=null) {
+                    checkDB("SELECT EXISTS(SELECT postId FROM postMetaData WHERE postId='testId5')", resObj[property], function (shouldGetPostData, resObj) {parseData(shouldGetPostData, resObj);});
+                    }
+                  }
+                }
+          }
       }
     ), {scope: 'publish_actions'};
+
 }
 
-function parseAndRecordData (response) {
-  for (var i=1; i<12; i=i+2) {
-        resObj = JSON.parse(response[i].body);
-        //  console.log(response);
-          for (var property in resObj) {
-              if (resObj.hasOwnProperty(property)) {
-                  // console.log(resObj[property]);
-                  if (resObj[property]!=undefined) {
-                  //  console.log("id: " + resObj[property].id);
-                  /*  if (! checkIfUntrackedPost (resObj[property].id)) {
-                      // break;
-                    //  console.log("breaking loop");
-                  } */
-
+function parseData (shouldGetPostData, postObj) {
+            if (!shouldGetPostData) {
+                  // console.log(postObj);
+                  if (postObj!=undefined) {
+                  //  console.log("id: " + postObj.id);
+                    parsedObj.id = postObj.id;
                   }
                   else {
                   //  console.log("id: " +"null");
-                    break;
+                    parsedObj.id = "empty";
                   }
 
-                  if (resObj[property].shares!=undefined) {
-                  //  console.log("shares: " + resObj[property].shares.count);
-                    if (parseInt(resObj[property].shares.count) > 80000) {
-                      emailData.push(" shares: " + resObj[property].shares.count);
+                  if (postObj.shares!=undefined) {
+                  //  console.log("shares: " + postObj.shares.count);
+                    parsedObj.shares = postObj.shares.count;
+                    if (parseInt(postObj.shares.count) > 80000) {
+                      emailData.push(" shares: " + postObj.shares.count);
                     }
                   }
                   else {
                   //  console.log("shares: " +"null");
+                    parsedObj.shares = null;
                   }
 
-                  if (resObj[property].likes.summary!=undefined) {
-                  //  console.log("likes: " + resObj[property].likes.summary.total_count);
-                    if (parseInt(resObj[property].likes.summary.total_count) > 200000) {
-                      emailData.push(" likes: " + resObj[property].likes.summary.total_count);
+                  if (postObj.likes.summary!=undefined) {
+                  //  console.log("likes: " + postObj.likes.summary.total_count);
+                    parsedObj.likes = postObj.likes.summary.total_count;
+                    if (parseInt(postObj.likes.summary.total_count) > 100000) {
+                      emailData.push(" likes: " + postObj.likes.summary.total_count);
                     }
                   }
                   else {
                   //  console.log("likes: " +"null");
+                    parsedObj.likes = null;
                   }
 
-                  if (resObj[property].comments.summary!=undefined) {
-                  //  console.log("comments: "+resObj[property].comments.summary.total_count);
-                    if (parseInt(resObj[property].comments.summary.total_count) > 50000) {
-                      emailData.push(" comments: "+resObj[property].comments.summary.total_count);
+                  if (postObj.comments.summary!=undefined) {
+                  //  console.log("comments: "+postObj.comments.summary.total_count);
+                      parsedObj.comments=postObj.comments.summary.total_count;
+                    if (parseInt(postObj.comments.summary.total_count) > 50000) {
+                      emailData.push(" comments: "+postObj.comments.summary.total_count);
                     }
                   }
                   else {
                   //  console.log("comments: " +"null");
+                    parsedObj.comments=null;
                   }
 
-                  if (resObj[property]!=undefined) {
-                  //  console.log("link: "+resObj[property].link);
+                  if (postObj!=undefined) {
+                  //  console.log("link: "+postObj.link);
+                    parsedObj.link=postObj.link;
                     if (emailData.length > 0) {
-                      emailData.push(" link: "+resObj[property].link);
+                      emailData.push(" link: "+postObj.link);
                     }
                   }
                   else {
                 //    console.log("link: " +"null");
+                  parsedObj.link=null;
                   }
-                  if (resObj[property]!=undefined) {
-                  //  console.log("created time: " + resObj[property].created_time);
+                  if (postObj!=undefined) {
+                  //  console.log("created time: " + postObj.created_time);
+                    parsedObj.created_time=postObj.created_time;
                     if (emailData.length > 0) {
-                      emailData.push(" created time: " + resObj[property].created_time);
+                      emailData.push(" created time: " + postObj.created_time);
                     }
                   }
                   else {
                   //  console.log("created time: " +"null");
+                    parsedObj.created_time=null;
                   }
-                  if (resObj[property]!=undefined) {
-                  //  console.log("message: " + resObj[property].message);
+                  if (postObj!=undefined) {
+                  //  console.log("message: " + postObj.message);
                     if (emailData.length > 0) {
-                      emailData.push(" message: " + resObj[property].message);
+                      emailData.push(" message: " + postObj.message);
                     }
                   }
                   else {
@@ -176,12 +190,13 @@ function parseAndRecordData (response) {
                   }
                 //  console.log("next");
                 if (emailData.length > 0) {
-                  // sendEmail(emailData);
+                  //  sendEmail(emailData);
+                  console.log(emailData);
+                  console.log(parsedObj);
                   emailData =[];
                 }
-              }
-          }
-    }
+            }
+        return
 }
 function insertIntoDB () {
   timeNow = new Date();
@@ -236,7 +251,7 @@ function sendEmail (emailData) {
   });
 }
 
-function checkDB(query, callback) {
+function checkDB(query, resObj, callback) {
   con.query(query, function (err, result) {
       //console.log(result[0][Object.keys(result[0])[0]]);
         if (result[0][Object.keys(result[0])[0]]) {
@@ -248,7 +263,7 @@ function checkDB(query, callback) {
         console.log('Row doesn\'t exist');
         isPostBeingTracked = false;
         }
-        callback(isPostBeingTracked);
+        callback(isPostBeingTracked, resObj);
     });
 }
 
