@@ -2,15 +2,10 @@ var connect = require('connect'),
     fbsdk = require('facebook-sdk');
 
 var port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
-var postsReceived = false;
-var gettingDataForPosts;
-var gettingData;
 var newReq;
 var mysql = require('mysql');
 var timeNow;
 var resObj;
-var parsedObj = {id:'', shares:0, likes:0, comments: 0, created_time:'', link:''};
-var emailData = [];
 var nodemailer = require('nodemailer');
 var transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -98,8 +93,9 @@ function getPosts() {
                 for (var property in resObj) {
                   if (resObj.hasOwnProperty(property)) {
                     resID = resObj[property].id;
+                    // console.log(resID);
                     if (resID!="empty" && resID!=undefined && resID!=null) {
-                    checkDB("SELECT EXISTS(SELECT postId FROM postMetaData WHERE postId='testId5')", resObj[property], function (shouldGetPostData, resObj) {parseData(shouldGetPostData, resObj);});
+                    checkDB("SELECT EXISTS(SELECT postId FROM postMetaData WHERE postId='"+resID+"')", resObj[property], function (shouldGetPostData, resObj) {parseData(shouldGetPostData, resObj);});
                     }
                   }
                 }
@@ -111,6 +107,8 @@ function getPosts() {
 
 function parseData (shouldGetPostData, postObj) {
             if (!shouldGetPostData) {
+                  var parsedObj = {id:'', shares:0, likes:0, comments: 0, created_time:'', link:'', message:''};
+                  var emailData = [];
                   // console.log(postObj);
                   if (postObj!=undefined) {
                   //  console.log("id: " + postObj.id);
@@ -181,17 +179,19 @@ function parseData (shouldGetPostData, postObj) {
                   }
                   if (postObj!=undefined) {
                   //  console.log("message: " + postObj.message);
+                    parsedObj.message=postObj.message;
                     if (emailData.length > 0) {
                       emailData.push(" message: " + postObj.message);
                     }
                   }
                   else {
                   //  console.log("message: " +"null");
+                  parsedObj.message=null;
                   }
                 //  console.log("next");
                 if (emailData.length > 0) {
                   //  sendEmail(emailData);
-                  console.log(emailData);
+                  // console.log(emailData);
                   console.log(parsedObj);
                   emailData =[];
                 }
@@ -211,7 +211,6 @@ function insertIntoDB () {
 }
 
 function getPages() {
-  if (!postsReceived) {
     newReq.facebook.api('/', 'GET', {ids: '146505212039213,199098633470668,179417642100354,363765800431935,21785951839,334191996715482',
                             fields: 'name,id,fan_count'
                           },
@@ -219,7 +218,6 @@ function getPages() {
                               console.log(response);
                           }
     ), {scope: 'publish_actions'};
-  }
 }
 
 function terminateApp () {
@@ -260,7 +258,7 @@ function checkDB(query, resObj, callback) {
         // postTrackResultAchieved = true;
           }
         else {
-        console.log('Row doesn\'t exist');
+      //  console.log('Row doesn\'t exist');
         isPostBeingTracked = false;
         }
         callback(isPostBeingTracked, resObj);
