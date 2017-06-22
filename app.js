@@ -1,11 +1,21 @@
 var connect = require('connect'),
-    fbsdk = require('facebook-sdk');
+    fbsdk = require('facebook-sdk'),
+    fs = require('fs'),
+    mysql = require('mysql');
 
 var port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 var newReq;
-var mysql = require('mysql');
 var timeNow;
-var resObj;
+var timeTrackingCodes = new function () {
+  this.day1 = 81;
+  this.day2 = this.day1+1;
+  this.day4 = this.day1+2;
+  this.week1 = this.day1+3;
+  this.week2 = this.day1+4;
+  this.week3 = this.day1+5;
+  this.week4 = this.day1+6;
+};
+
 var nodemailer = require('nodemailer');
 var transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -59,7 +69,12 @@ connect()
     }
 
   // terminateApp();
-   getPosts();
+  // getPosts();
+  var deleteTestObj1 = {"id":"postID1","shares":{"count":88},"likes":{"data":[],"summary":{"total_count":397,"can_like":false,"has_liked":false}},"comments":{"data":[],"summary":{"order":"ranked","total_count":200,"can_comment":false}},"link":"http://www.unilad.co.uk/articles/the-queen-reported-to-police-for-crime-she-committed-on-her-way-to-parliament/","created_time":"2017-06-22T16:28:17+0000","message":"People dialled 999 when they saw it."};
+  var deleteTestObj2 = {"id":"postID2","shares":{"count":98},"likes":{"data":[],"summary":{"total_count":497,"can_like":false,"has_liked":false}},"comments":{"data":[],"summary":{"order":"ranked","total_count":300,"can_comment":false}},"link":"http://www.unilad.co.uk/articles/the-queen-reported-to-police-for-crime-she-committed-on-her-way-to-parliament/","created_time":"2017-06-22T16:28:17+0000","message":"People dialled 999 when they saw it."};
+
+   readDB("SELECT trackingStatus FROM activePostsMetaData WHERE postId='postID1'", deleteTestObj1, function (trackingStatus, postObj, pageName) {parseData(trackingStatus, postObj, pageName);}, 'UNILAD');
+   readDB("SELECT trackingStatus FROM activePostsMetaData WHERE postId='postID2'", deleteTestObj2, function (trackingStatus, postObj, pageName) {parseData(trackingStatus, postObj, pageName);}, 'UNILAD');
   // setInterval (function () {getPosts();}, 10000);
   // insertIntoDB ();
   // readDB("SELECT EXISTS(SELECT postId FROM postMetaData WHERE postId='testId5')", function (dbResult) {console.log(dbResult); });
@@ -113,16 +128,18 @@ function getPosts() {
                   default:
                       break;
               }
-              resObj = JSON.parse(response[i].body);
+              var resObj = JSON.parse(response[i].body);
+              // console.log(resObj);
                 for (var property in resObj) {
                   if (resObj.hasOwnProperty(property)) {
-                    resID = resObj[property].id;
-                    // console.log(resID);
-                    // console.log(pageName);
+                    var resID = resObj[property].id;
+                    var postObj = resObj[property];
+                    // console.log(resID + pageName);
                     if (resID!="empty" && resID!=undefined && resID!=null) {
                     //  var readQuery = "SELECT EXISTS(SELECT postId FROM activePostsMetaData WHERE postId='"+resID+"')";
                       var readQuery = "SELECT trackingStatus FROM activePostsMetaData WHERE postId='"+resID+"'";
-                      readDB(readQuery, resObj[property], function (trackingStatus, resObj, pageName) {parseData(trackingStatus, resObj, pageName);}, pageName);
+                    // console.log(readQuery);
+                      readDB(readQuery, postObj, function (trackingStatus, postObj, pageName) {parseData(trackingStatus, postObj, pageName);}, pageName);
                     }
                   }
                 }
@@ -220,26 +237,35 @@ function parseData (trackingStatus, postObj, pageName) {
                   // console.log(emailData);
                   // console.log(parsedObj);
                   // console.log(pageName);
-                  emailData =[];
                 }
+              /*  fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/testOutput-delete6.txt", JSON.stringify(emailData)+"\n"+JSON.stringify(parsedObj)+"\n\n", function(err) {
+                       if(err) { return console.log(err); }
+                       console.log("The file was saved!");
+                   }); */
 
         if (!trackingStatus) {
-          var query2 = "INSERT INTO activePostsMetaData (pageName, postId, createdTime, message, link) VALUES (?, ?, ? , ?, ?)";
+          var query2 = "INSERT INTO activePostsMetaData (pageName, postId, createdTime, message, link, trackingStatus) VALUES (?, ?, ? , ?, ?, 0)";
           var queryParameters2 = [pageName, parsedObj.id, parsedObj.created_time, parsedObj.message, parsedObj.link];
         }
-        else if (trackingStatus >= 86) {
-          //delete from activepostsmeta and update archivedpostsmeta
+        else if (trackingStatus >= timeTrackingCodes.week4) {
+          var query2 = "DELETE FROM activePostsMetaData WHERE postId = ?";
+          var queryParameters2 = [parsedObj.id];
+          writeDB(query2, queryParameters2);
+
+          var query3 = "INSERT INTO archivedPostsMetaData (pageName, postId, createdTime, message, link) VALUES (?, ?, ? , ?, ?)";
+          var queryParameters3 = [pageName, parsedObj.id, parsedObj.created_time, parsedObj.message, parsedObj.link];
+          writeDB(query3, queryParameters3);
+          return;
         }
-        else if (trackingStatus < 86) {
+        else if (trackingStatus < timeTrackingCodes.week4) {
           var query2 = "UPDATE activePostsMetaData SET trackingStatus = ? WHERE postId = ?";
-          var queryParameters2 = [trackingStatus, parsedObj.id];
+          var queryParameters2 = [trackingStatus+1, parsedObj.id];
         }
-        trackingStatus++;
-        var query1 = "INSERT INTO uniladPostsSocialData (postId, recordTime, shares, likes, comments) VALUES (?, ?, ?, ?, ?)";
+        var query1 = "INSERT INTO ?? (postId, recordTime, shares, likes, comments) VALUES (?, ?, ?, ?, ?)";
         timeNow = new Date();
-        var queryParameters1 = [parsedObj.id, timeNow, parsedObj.shares, parsedObj.likes, parsedObj.comments];
-      //  writeDB(query1);
-      //  writeDB(query2);
+        var queryParameters1 = [pageName, parsedObj.id, timeNow, parsedObj.shares, parsedObj.likes, parsedObj.comments];
+        writeDB(query1, queryParameters1);
+        writeDB(query2, queryParameters2);
 }
 
 function getPages() {
@@ -281,7 +307,7 @@ function sendEmail (emailData) {
   });
 }
 
-function readDB(query, resObj, callback, pageName) {
+function readDB(query, postObj, callback, pageName) {
   con.query(query, function (err, result) {
       //console.log(result[0][Object.keys(result[0])[0]]);
       var trackingStatus;
@@ -291,17 +317,8 @@ function readDB(query, resObj, callback, pageName) {
         else {
           trackingStatus = 0;
         }
-    /*   if (result[0][Object.keys(result[0])[0]]) {
-          console.log('Row exists');
-          isNewPost = true;
-        // postTrackResultAchieved = true;
-          }
-        else {
-      //  console.log('Row doesn\'t exist');
-          isNewPost = false;
-        } */
 
-        callback(trackingStatus, resObj, pageName);
+        callback(trackingStatus, postObj, pageName);
 
     });
 }
@@ -310,10 +327,10 @@ function writeDB (query, queryParameters) {
   /* to use variables set a '?' in place of them and then set the value for it in the second paramter of the con.query method -
   if more than one variable, then use multiple question marks and then replace the second paramter of the con.query method with an array
   - see https://stackoverflow.com/questions/41168942/how-to-input-a-nodejs-variable-into-an-sql-qyery for more details */
+  /*use ?? for variable identifiers and not string values themselves - https://stackoverflow.com/questions/30829878/variable-as-table-name-in-node-js-mysql */
   con.query(query, queryParameters, function (err, result) {
     if (err) throw err;
     console.log("1 record inserted");
   });
 }
-
 console.log('Listening for http requests on port ' + port);
