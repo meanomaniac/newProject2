@@ -62,7 +62,8 @@ connect()
    getPosts();
   // setInterval (function () {getPosts();}, 10000);
   // insertIntoDB ();
-  // checkDB("SELECT EXISTS(SELECT postId FROM postMetaData WHERE postId='testId5')", function (dbResult) {console.log(dbResult); });
+  // readDB("SELECT EXISTS(SELECT postId FROM postMetaData WHERE postId='testId5')", function (dbResult) {console.log(dbResult); });
+  // writeDB("INSERT INTO activePostsMetaData (pageName, postId, createdTime, message, link) VALUES ('testPage', 'testId4', ? , 'testMsg', 'testLink')");
 
   })
   .listen(port);
@@ -88,14 +89,40 @@ function getPosts() {
     },
       function (response){
         //  console.log(response);
+          var pageName;
         for (var i=1; i<12; i=i+2) {
+                switch(i) {
+                  case 1:
+                      pageName='UNILAD';
+                      break;
+                  case 3:
+                      pageName='LADbible';
+                      break;
+                  case 5:
+                      pageName='NTDTelevision';
+                      break;
+                  case 7:
+                      pageName='ViralThread';
+                      break;
+                  case 9:
+                      pageName='9GAG';
+                      break;
+                  case 11:
+                      pageName='TheDodo';
+                      break;
+                  default:
+                      break;
+              }
               resObj = JSON.parse(response[i].body);
                 for (var property in resObj) {
                   if (resObj.hasOwnProperty(property)) {
                     resID = resObj[property].id;
                     // console.log(resID);
+                    // console.log(pageName);
                     if (resID!="empty" && resID!=undefined && resID!=null) {
-                    checkDB("SELECT EXISTS(SELECT postId FROM postMetaData WHERE postId='"+resID+"')", resObj[property], function (shouldGetPostData, resObj) {parseData(shouldGetPostData, resObj);});
+                    //  var readQuery = "SELECT EXISTS(SELECT postId FROM activePostsMetaData WHERE postId='"+resID+"')";
+                      var readQuery = "SELECT trackingStatus FROM activePostsMetaData WHERE postId='"+resID+"'";
+                      readDB(readQuery, resObj[property], function (trackingStatus, resObj, pageName) {parseData(trackingStatus, resObj, pageName);}, pageName);
                     }
                   }
                 }
@@ -105,8 +132,7 @@ function getPosts() {
 
 }
 
-function parseData (shouldGetPostData, postObj) {
-            if (!shouldGetPostData) {
+function parseData (trackingStatus, postObj, pageName) {
                   var parsedObj = {id:'', shares:0, likes:0, comments: 0, created_time:'', link:'', message:''};
                   var emailData = [];
                   // console.log(postObj);
@@ -190,24 +216,30 @@ function parseData (shouldGetPostData, postObj) {
                   }
                 //  console.log("next");
                 if (emailData.length > 0) {
-                  //  sendEmail(emailData);
+                  // sendEmail(emailData);
                   // console.log(emailData);
-                  console.log(parsedObj);
+                  // console.log(parsedObj);
+                  // console.log(pageName);
                   emailData =[];
                 }
-            }
-        return
-}
-function insertIntoDB () {
-  timeNow = new Date();
-  /* to use variables set a '?' in place of them and then set the value for it in the second paramter of the con.query method -
-  if more than one variable, then use multiple question marks and then replace the second paramter of the con.query method with an array
-  - see https://stackoverflow.com/questions/41168942/how-to-input-a-nodejs-variable-into-an-sql-qyery for more details */
- var sql = "INSERT INTO postMetaData (pageName, postId, createdTime, message, link) VALUES ('testPage', 'testId4', ? , 'testMsg', 'testLink')";
-  con.query(sql, timeNow, function (err, result) {
-    if (err) throw err;
-    console.log("1 record inserted");
-  });
+
+        if (!trackingStatus) {
+          var query2 = "INSERT INTO activePostsMetaData (pageName, postId, createdTime, message, link) VALUES (?, ?, ? , ?, ?)";
+          var queryParameters2 = [pageName, parsedObj.id, parsedObj.created_time, parsedObj.message, parsedObj.link];
+        }
+        else if (trackingStatus >= 86) {
+          //delete from activepostsmeta and update archivedpostsmeta
+        }
+        else if (trackingStatus < 86) {
+          var query2 = "UPDATE activePostsMetaData SET trackingStatus = ? WHERE postId = ?";
+          var queryParameters2 = [trackingStatus, parsedObj.id];
+        }
+        trackingStatus++;
+        var query1 = "INSERT INTO uniladPostsSocialData (postId, recordTime, shares, likes, comments) VALUES (?, ?, ?, ?, ?)";
+        timeNow = new Date();
+        var queryParameters1 = [parsedObj.id, timeNow, parsedObj.shares, parsedObj.likes, parsedObj.comments];
+      //  writeDB(query1);
+      //  writeDB(query2);
 }
 
 function getPages() {
@@ -249,20 +281,39 @@ function sendEmail (emailData) {
   });
 }
 
-function checkDB(query, resObj, callback) {
+function readDB(query, resObj, callback, pageName) {
   con.query(query, function (err, result) {
       //console.log(result[0][Object.keys(result[0])[0]]);
-        if (result[0][Object.keys(result[0])[0]]) {
+      var trackingStatus;
+       if (result.length!=0) {
+         trackingStatus = result[0][Object.keys(result[0])[0]];
+        }
+        else {
+          trackingStatus = 0;
+        }
+    /*   if (result[0][Object.keys(result[0])[0]]) {
           console.log('Row exists');
-        isPostBeingTracked = true;
+          isNewPost = true;
         // postTrackResultAchieved = true;
           }
         else {
       //  console.log('Row doesn\'t exist');
-        isPostBeingTracked = false;
-        }
-        callback(isPostBeingTracked, resObj);
+          isNewPost = false;
+        } */
+
+        callback(trackingStatus, resObj, pageName);
+
     });
+}
+
+function writeDB (query, queryParameters) {
+  /* to use variables set a '?' in place of them and then set the value for it in the second paramter of the con.query method -
+  if more than one variable, then use multiple question marks and then replace the second paramter of the con.query method with an array
+  - see https://stackoverflow.com/questions/41168942/how-to-input-a-nodejs-variable-into-an-sql-qyery for more details */
+  con.query(query, queryParameters, function (err, result) {
+    if (err) throw err;
+    console.log("1 record inserted");
+  });
 }
 
 console.log('Listening for http requests on port ' + port);
