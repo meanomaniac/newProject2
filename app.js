@@ -3,9 +3,8 @@ var connect = require('connect'),
     fs = require('fs'),
     mysql = require('mysql');
 
-var port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
+var port = process.env.OPENSHIFT_NODEJS_PORT || 8081;
 var newReq;
-var timeNow;
 var timeTrackingCodes = new function () {
   this.day1 = 81;
   this.day2 = this.day1+1;
@@ -69,21 +68,21 @@ connect()
     }
 
   // terminateApp();
-  // getPosts();
-  var deleteTestObj1 = {"id":"postID1","shares":{"count":88},"likes":{"data":[],"summary":{"total_count":397,"can_like":false,"has_liked":false}},"comments":{"data":[],"summary":{"order":"ranked","total_count":200,"can_comment":false}},"link":"http://www.unilad.co.uk/articles/the-queen-reported-to-police-for-crime-she-committed-on-her-way-to-parliament/","created_time":"2017-06-22T16:28:17+0000","message":"People dialled 999 when they saw it."};
-  var deleteTestObj2 = {"id":"postID2","shares":{"count":98},"likes":{"data":[],"summary":{"total_count":497,"can_like":false,"has_liked":false}},"comments":{"data":[],"summary":{"order":"ranked","total_count":300,"can_comment":false}},"link":"http://www.unilad.co.uk/articles/the-queen-reported-to-police-for-crime-she-committed-on-her-way-to-parliament/","created_time":"2017-06-22T16:28:17+0000","message":"People dialled 999 when they saw it."};
+  // recordNewPosts();
+  // var deleteTestObj1 = {"id":"postID1","shares":{"count":88},"likes":{"data":[],"summary":{"total_count":397,"can_like":false,"has_liked":false}},"comments":{"data":[],"summary":{"order":"ranked","total_count":200,"can_comment":false}},"link":"http://www.unilad.co.uk/articles/the-queen-reported-to-police-for-crime-she-committed-on-her-way-to-parliament/","created_time":"2017-06-22T16:28:17+0000","message":"People dialled 999 when they saw it."};
+  // var deleteTestObj2 = {"id":"postID2","shares":{"count":98},"likes":{"data":[],"summary":{"total_count":497,"can_like":false,"has_liked":false}},"comments":{"data":[],"summary":{"order":"ranked","total_count":300,"can_comment":false}},"link":"http://www.unilad.co.uk/articles/the-queen-reported-to-police-for-crime-she-committed-on-her-way-to-parliament/","created_time":"2017-06-22T16:28:17+0000","message":"People dialled 999 when they saw it."};
 
-   readDB("SELECT trackingStatus FROM activePostsMetaData WHERE postId='postID1'", deleteTestObj1, function (trackingStatus, postObj, pageName) {parseData(trackingStatus, postObj, pageName);}, 'UNILAD');
-   readDB("SELECT trackingStatus FROM activePostsMetaData WHERE postId='postID2'", deleteTestObj2, function (trackingStatus, postObj, pageName) {parseData(trackingStatus, postObj, pageName);}, 'UNILAD');
-  // setInterval (function () {getPosts();}, 10000);
+  // checkIfNewPost("SELECT trackingStatus FROM activePostsMetaData WHERE postId='postID1'", deleteTestObj1, function (trackingStatus, postObj, pageName) {parseData(trackingStatus, postObj, pageName);}, 'UNILAD');
+  // checkIfNewPost("SELECT trackingStatus FROM activePostsMetaData WHERE postId='postID2'", deleteTestObj2, function (trackingStatus, postObj, pageName) {parseData(trackingStatus, postObj, pageName);}, 'UNILAD');
+  // setInterval (function () {recordNewPosts();}, 10000);
   // insertIntoDB ();
-  // readDB("SELECT EXISTS(SELECT postId FROM postMetaData WHERE postId='testId5')", function (dbResult) {console.log(dbResult); });
+  // checkIfNewPost("SELECT EXISTS(SELECT postId FROM postMetaData WHERE postId='testId5')", function (dbResult) {console.log(dbResult); });
   // writeDB("INSERT INTO activePostsMetaData (pageName, postId, createdTime, message, link) VALUES ('testPage', 'testId4', ? , 'testMsg', 'testLink')");
-
+  getAllTrackedPosts(function (trackedPostsArray) { updateExistingPosts(trackedPostsArray);});
   })
   .listen(port);
 
-function getPosts() {
+function recordNewPosts() {
 
   newReq.facebook.api('', 'POST', {
         batch: [
@@ -139,7 +138,7 @@ function getPosts() {
                     //  var readQuery = "SELECT EXISTS(SELECT postId FROM activePostsMetaData WHERE postId='"+resID+"')";
                       var readQuery = "SELECT trackingStatus FROM activePostsMetaData WHERE postId='"+resID+"'";
                     // console.log(readQuery);
-                      readDB(readQuery, postObj, function (trackingStatus, postObj, pageName) {parseData(trackingStatus, postObj, pageName);}, pageName);
+                      checkIfNewPost(readQuery, postObj, function (trackingStatus, postObj, pageName) {parseData(trackingStatus, postObj, pageName);}, pageName);
                     }
                   }
                 }
@@ -262,7 +261,7 @@ function parseData (trackingStatus, postObj, pageName) {
           var queryParameters2 = [trackingStatus+1, parsedObj.id];
         }
         var query1 = "INSERT INTO ?? (postId, recordTime, shares, likes, comments) VALUES (?, ?, ?, ?, ?)";
-        timeNow = new Date();
+        var timeNow = new Date();
         var queryParameters1 = [pageName, parsedObj.id, timeNow, parsedObj.shares, parsedObj.likes, parsedObj.comments];
         writeDB(query1, queryParameters1);
         writeDB(query2, queryParameters2);
@@ -307,7 +306,7 @@ function sendEmail (emailData) {
   });
 }
 
-function readDB(query, postObj, callback, pageName) {
+function checkIfNewPost(query, postObj, callback, pageName) {
   con.query(query, function (err, result) {
       //console.log(result[0][Object.keys(result[0])[0]]);
       var trackingStatus;
@@ -323,6 +322,72 @@ function readDB(query, postObj, callback, pageName) {
     });
 }
 
+function getAllTrackedPosts(callback) {
+  con.query('SELECT postId, createdTime, trackingStatus, pageName FROM activePostsMetaData', function (err, result) {
+      //console.log(result[0][Object.keys(result[0])[0]]);
+     // console.log(result);
+    // console.log(result.length);
+      // console.log(trackedPostsArray);
+      callback(result);
+    });
+}
+
+// in the following updateExistingPosts function 0 - postId, 1-createdTime, 2-trackingStatus, 3-pageName
+function updateExistingPosts(trackedPostsArray) {
+  for (var i=0; i<trackedPostsArray.length; i++) {
+    var postId = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[0]];
+    var createdTime = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[1]];
+    var trackingStatus = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[2]];
+    var pageName = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[3]];
+    var timeNow = new Date();
+    var time1 = new Date(createdTime);
+    var time2 = new Date(timeNow);
+    // console.log(Math.floor((time2 - time1)/(1000*60*60*24)));
+  /*  switch(trackingStatus) {
+      case 81:
+          getUpdate='UNILAD';
+          break;
+      case 82:
+          pageName='LADbible';
+          break;
+      case 83:
+          pageName='NTDTelevision';
+          break;
+      case 84:
+          pageName='ViralThread';
+          break;
+      case 85:
+          pageName='9GAG';
+          break;
+      case 86:
+          pageName='TheDodo';
+          break;
+      case 86:
+          pageName='TheDodo';
+          break;
+      default:
+          break;
+  }*/
+
+    newReq.facebook.api('', 'POST', {
+          batch: [
+              { method: 'GET', relative_url: postId+'?fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
+          ]
+      },
+        function (response){
+          //  console.log(response);
+                var postObj = JSON.parse(response[0].body);
+                //  console.log(postObj);
+                //  console.log("\n"+postId+" "+createdTime+" "+trackingStatus+" "+pageName);
+                      if (postId!="empty" && postId!=undefined && postId!=null) {
+                        var readQuery = "SELECT trackingStatus FROM activePostsMetaData WHERE postId='"+postId+"'";
+                        checkIfNewPost(readQuery, postObj, function (trackingStatus, postObj, pageName) {parseData(trackingStatus, postObj, pageName);}, pageName);
+                      }
+        }
+      ), {scope: 'publish_actions'};
+  }
+}
+
 function writeDB (query, queryParameters) {
   /* to use variables set a '?' in place of them and then set the value for it in the second paramter of the con.query method -
   if more than one variable, then use multiple question marks and then replace the second paramter of the con.query method with an array
@@ -333,4 +398,7 @@ function writeDB (query, queryParameters) {
     console.log("1 record inserted");
   });
 }
+/*var time1 = new Date('2017-06-22 09:23:44');
+var time2 = new Date('2017-06-23 10:23:44');
+console.log(Math.floor((time2 - time1)/(1000*60*60*24))); */
 console.log('Listening for http requests on port ' + port);
