@@ -1,7 +1,7 @@
 /* This program gathers social media data (likes, shares, comments) of videos from 6 of the top Video publishers in facebook at
 specific time intervals using Facebook's Graph API (specifically using the batch command to get a lot of data within a single http
-request). This is done by collecting the likes, shares, comments of the last 25 published videos of UNILAD, LADbible, NTDTelevision,
-TheDodo, 9GAG and the ViralThread (25 is the limit when u request posts of a page using Facebook's Graph API). The time intervals are:
+request). This is done by collecting the likes, shares, comments of the last 3 published videos of UNILAD, LADbible, NTDTelevision,
+TheDodo, 9GAG and the ViralThread. The time intervals are:
 1) every 30 seconds (can change - see the variable postDay1TimeInterval) in the first
 30 minutes of a new video's publication, 2) then once every hour for the first day 3) 2nd day, 4) 4th day 5) 1 week 6) 2nd week
 7) 3rd week 4) 4th week
@@ -33,6 +33,7 @@ The way to terminate the app is to set the trackingStatus value of either the fi
 table to -100. This is checked every one hour by the getAllTrackedPosts, so it may take a maximum of one hour after it is set for
 the app to terminate.
 The getPages function simply gets some basic data of each othe 6 pages, besides storing the IDs for each of the 6 pages
+The setIntervalSynchronous function allows the execution of setInterval in a synchronous way (https://gist.github.com/AndersDJohnson/4385908)
 */
 
 var connect = require('connect'),
@@ -107,10 +108,11 @@ connect()
       res.end('<a href="' + req.facebook.getLoginUrl() + '">Login</a>');
     }
 
-    setInterval (function () {recordNewPosts();}, initialMonitorTimeInterval);
-    setInterval (function () {getAllTrackedPosts(function (trackedPostsArray) {updateExistingPosts(trackedPostsArray);});}, postDay1TimeInterval);
-   // getAllTrackedPosts(function (trackedPostsArray, index) { updateExistingPosts(trackedPostsArray, index);});
-  // recordNewPosts();
+    // setInterval (function () {recordNewPosts();}, initialMonitorTimeInterval);
+    // setInterval (function () {getAllTrackedPosts(function (trackedPostsArray) {updateExistingPosts(trackedPostsArray);});}, postDay1TimeInterval);
+    // getAllTrackedPosts(function (trackedPostsArray, index) { updateExistingPosts(trackedPostsArray, index);});
+   setIntervalSynchronous (function () {recordNewPosts();}, initialMonitorTimeInterval);
+   setIntervalSynchronous (function () {getAllTrackedPosts(function (trackedPostsArray) {updateExistingPosts(trackedPostsArray);});}, postDay1TimeInterval);
   })
   .listen(port);
 
@@ -118,23 +120,25 @@ function recordNewPosts() {
 
   newReq.facebook.api('', 'POST', {
         batch: [
-            { method: 'GET', relative_url: '/146505212039213/posts', name: 'UNILAD' }
+            { method: 'GET', relative_url: '/146505212039213/posts?fields=id', name: 'UNILAD' }
             , { method: 'GET', depends_on: 'UNILAD', relative_url: '?ids={result=UNILAD:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
-           ,{ method: 'GET', relative_url: '/199098633470668/posts', name: 'LADbible' }
+           ,{ method: 'GET', relative_url: '/199098633470668/posts?fields=id', name: 'LADbible' }
            , { method: 'GET', depends_on: 'LADbible', relative_url: '?ids={result=LADbible:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
-           ,{ method: 'GET', relative_url: '/179417642100354/posts', name: 'NTDTelevision' }
+           ,{ method: 'GET', relative_url: '/179417642100354/posts?fields=id', name: 'NTDTelevision' }
            , { method: 'GET', depends_on: 'NTDTelevision', relative_url: '?ids={result=NTDTelevision:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
-           ,{ method: 'GET', relative_url: '/363765800431935/posts', name: 'ViralThread' }
+           ,{ method: 'GET', relative_url: '/363765800431935/posts?fields=id', name: 'ViralThread' }
            , { method: 'GET', depends_on: 'ViralThread', relative_url: '?ids={result=ViralThread:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
-           ,{ method: 'GET', relative_url: '/21785951839/posts', name: 'NineGAG' }
+           ,{ method: 'GET', relative_url: '/21785951839/posts?fields=id', name: 'NineGAG' }
            , { method: 'GET', depends_on: 'NineGAG', relative_url: '?ids={result=NineGAG:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
-           ,{ method: 'GET', relative_url: '/334191996715482/posts', name: 'TheDodo' }
+           ,{ method: 'GET', relative_url: '/334191996715482/posts?fields=id', name: 'TheDodo' }
            , { method: 'GET', depends_on: 'TheDodo', relative_url: '?ids={result=TheDodo:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
 
         ]
     },
       function (response){
         //  console.log(response);
+        var timeNow = new Date();
+        console.log(timeNow);
           var pageName;
         for (var i=1; i<12; i=i+2) {
                 switch(i) {
@@ -161,15 +165,17 @@ function recordNewPosts() {
               }
               var resObj = JSON.parse(response[i].body);
               // console.log(resObj);
+              var postsCount = 0;
                 for (var property in resObj) {
-                  if (resObj.hasOwnProperty(property)) {
+                  if (resObj.hasOwnProperty(property) && postsCount <3) {
                     var resID = resObj[property].id;
                     var postObj = resObj[property];
-                    // console.log(resID + pageName);
+                     // console.log(resID + pageName);
+                     postsCount++;
                     // if (resID!="empty" && resID!=undefined && resID!=null)
                       var readQuery = "SELECT trackingStatus FROM activePostsMetaData WHERE postId='"+resID+"'";
                     // console.log(readQuery);
-                      checkIfNewPost(readQuery, postObj, function (trackingStatus, postObj, pageName) {savePostInfo(trackingStatus, postObj, pageName);}, pageName);
+                    //  checkIfNewPost(readQuery, postObj, function (trackingStatus, postObj, pageName) {savePostInfo(trackingStatus, postObj, pageName);}, pageName);
                   }
                 }
           }
@@ -408,5 +414,21 @@ function returnParsedObject (postObj) {
   }
   return parsedObj;
 }
+
+var setIntervalSynchronous = function (func, delay) {
+  var intervalFunction, timeoutId, clear;
+  // Call to clear the interval.
+  clear = function () {
+    clearTimeout(timeoutId);
+  };
+  intervalFunction = function () {
+    func();
+    timeoutId = setTimeout(intervalFunction, delay);
+  }
+  // Delay start.
+  timeoutId = setTimeout(intervalFunction, delay);
+  // You should capture the returned function for clearing.
+  return clear;
+};
 
 console.log('Listening for http requests on port ' + port);
