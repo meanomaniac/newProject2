@@ -219,7 +219,7 @@ function sendEmail (postObj) {
   var parsedObj = returnParsedObject (postObj);
   var emailData = [];
 
-    if ((parseInt(parsedObj.shares) > 80000) || (parseInt(parsedObj.likes) > 100000) || (parseInt(parsedObj.comments) > 40000) )
+    if ((parseInt(parsedObj.shares) > 80000) || (parseInt(parsedObj.likes) > 100000) || (parseInt(parsedObj.comments) > 80000) )
     {
       emailData.push(" shares: " + parsedObj.shares, " likes: " + parsedObj.likes,
       " comments: "+parsedObj.comments, " created time: " + parsedObj.created_time, " message: " + parsedObj.message,
