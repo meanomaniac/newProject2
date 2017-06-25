@@ -175,7 +175,7 @@ function recordNewPosts() {
                     // if (resID!="empty" && resID!=undefined && resID!=null)
                       var readQuery = "SELECT trackingStatus FROM activePostsMetaData WHERE postId='"+resID+"'";
                     // console.log(readQuery);
-                    //  checkIfNewPost(readQuery, postObj, function (trackingStatus, postObj, pageName) {savePostInfo(trackingStatus, postObj, pageName);}, pageName);
+                      checkIfNewPost(readQuery, postObj, function (trackingStatus, postObj, pageName) {savePostInfo(trackingStatus, postObj, pageName);}, pageName);
                   }
                 }
           }
@@ -430,5 +430,5 @@ var setIntervalSynchronous = function (func, delay) {
   // You should capture the returned function for clearing.
   return clear;
 };
-console.log('using build from 6/25/17 7:48 PM');
+console.log('using build from 6/25/17 7:51 PM');
 console.log('Listening for http requests on port ' + port);
