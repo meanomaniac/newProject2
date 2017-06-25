@@ -1,12 +1,52 @@
+/* This program gathers social media data (likes, shares, comments) of videos from 6 of the top Video publishers in facebook at
+specific time intervals using Facebook's Graph API (specifically using the batch command to get a lot of data within a single http
+request). This is done by collecting the likes, shares, comments of the last 25 published videos of UNILAD, LADbible, NTDTelevision,
+TheDodo, 9GAG and the ViralThread (25 is the limit when u request posts of a page using Facebook's Graph API). The time intervals are:
+1) every 30 seconds (can change - see the variable postDay1TimeInterval) in the first
+30 minutes of a new video's publication, 2) then once every hour for the first day 3) 2nd day, 4) 4th day 5) 1 week 6) 2nd week
+7) 3rd week 4) 4th week
+
+The data is saved in a mySQL database that has 8 tables: one table each for the 6 pages/publishers to record shares, likes and comments
+at the specified intervals, and 2 tables for tracking the metadata for each video (which inlcudes ID, Link, message and pagename).
+The first metadata table (activePostsMetaData) is different from the other (archivedPostsMetaData) in that the former has an
+additional column called trackingStatus which keeps a track of the specific time interval/period that a post is in so that we
+can determine when the next GET for the video's social data needs to happen. When all the timeintervals (4 weeks) are done, the video
+is moved into the archivedPostsMetaData table.
+The common key (like primary key) in all tables (page specific and metadata) is the video's object ID
+
+The data recording is done 2 ways - each via the flow through 4 functions listed below.
+1) The 1st interval is handled below by the recordNewPosts() function and the remaining are handled by the getAllTrackedPosts() function
+2) recordNewPosts function (one of FB API contaning functions) calls the checkIfNewPost() function to query the database for the trackingStatus of all the activeposts
+and the getAllTrackedPosts() which is the database query function calls the updateExistingPosts function (the other FB API contaning function)
+3) The savePostInfo is the common fucntion between both of the above ways - it determines what should be recorded in the database
+after each API call. Besides recording the social media data of the posts everytime this function is called,
+it determines one of the following 3 for each post:
+  a) If this is a new post, create a new row for it in the activePostsMetaData table and set trackingStatus to 1
+  b) If this is an existing post, then simply increase the trackingStatus of the post by 1 in the activePostsMetaData table
+  c) if it is past 4 weeks, delete the row from the activePostsMetaData table and add it to the archivedPostsMetaData table
+4) The writeDB actually writes to the Datatbase after receiving instructions from savePostInfo function
+
+A sendEmail function sends an email whenever any video's share count, like count or comment count goes above a certain limit
+The returnParsedObject just makes it easier to access each of the properties of a video after receiving the post's main object from
+Facebook's graph API.
+The way to terminate the app is to set the trackingStatus value of either the first or the second row in the activePostsMetaData
+table to -100. This is checked every one hour by the getAllTrackedPosts, so it may take a maximum of one hour after it is set for
+the app to terminate.
+The getPages function simply gets some basic data of each othe 6 pages, besides storing the IDs for each of the 6 pages
+*/
+
 var connect = require('connect'),
     fbsdk = require('facebook-sdk'),
     fs = require('fs'),
     mysql = require('mysql');
 
-var port = process.env.OPENSHIFT_NODEJS_PORT || 8081;
+var port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
 var newReq;
+var initialMonitorTimeInterval = 30000; // in milliseconds for setInterval
+var postDay1TimeInterval = 3600000; // in milliseconds for setInterval
 var timeTrackingCodes = new function () {
-  this.day1 = 81;
+  this.hour1 = 60; // (no. of times to get initialMonitorTimeInterval to 30 minutes )
+  this.day1 = this.hour1 + 24; // (no. of times to get initialMonitorTimeInterval to 30 minutes ) + 24 (for ever hour check)
   this.day2 = this.day1+1;
   this.day4 = this.day1+2;
   this.week1 = this.day1+3;
@@ -67,18 +107,10 @@ connect()
       res.end('<a href="' + req.facebook.getLoginUrl() + '">Login</a>');
     }
 
-  // terminateApp();
+    setInterval (function () {recordNewPosts();}, initialMonitorTimeInterval);
+    setInterval (function () {getAllTrackedPosts(function (trackedPostsArray) {updateExistingPosts(trackedPostsArray);});}, postDay1TimeInterval);
+   // getAllTrackedPosts(function (trackedPostsArray, index) { updateExistingPosts(trackedPostsArray, index);});
   // recordNewPosts();
-  // var deleteTestObj1 = {"id":"postID1","shares":{"count":88},"likes":{"data":[],"summary":{"total_count":397,"can_like":false,"has_liked":false}},"comments":{"data":[],"summary":{"order":"ranked","total_count":200,"can_comment":false}},"link":"http://www.unilad.co.uk/articles/the-queen-reported-to-police-for-crime-she-committed-on-her-way-to-parliament/","created_time":"2017-06-22T16:28:17+0000","message":"People dialled 999 when they saw it."};
-  // var deleteTestObj2 = {"id":"postID2","shares":{"count":98},"likes":{"data":[],"summary":{"total_count":497,"can_like":false,"has_liked":false}},"comments":{"data":[],"summary":{"order":"ranked","total_count":300,"can_comment":false}},"link":"http://www.unilad.co.uk/articles/the-queen-reported-to-police-for-crime-she-committed-on-her-way-to-parliament/","created_time":"2017-06-22T16:28:17+0000","message":"People dialled 999 when they saw it."};
-
-  // checkIfNewPost("SELECT trackingStatus FROM activePostsMetaData WHERE postId='postID1'", deleteTestObj1, function (trackingStatus, postObj, pageName) {parseData(trackingStatus, postObj, pageName);}, 'UNILAD');
-  // checkIfNewPost("SELECT trackingStatus FROM activePostsMetaData WHERE postId='postID2'", deleteTestObj2, function (trackingStatus, postObj, pageName) {parseData(trackingStatus, postObj, pageName);}, 'UNILAD');
-  // setInterval (function () {recordNewPosts();}, 10000);
-  // insertIntoDB ();
-  // checkIfNewPost("SELECT EXISTS(SELECT postId FROM postMetaData WHERE postId='testId5')", function (dbResult) {console.log(dbResult); });
-  // writeDB("INSERT INTO activePostsMetaData (pageName, postId, createdTime, message, link) VALUES ('testPage', 'testId4', ? , 'testMsg', 'testLink')");
-  getAllTrackedPosts(function (trackedPostsArray) { updateExistingPosts(trackedPostsArray);});
   })
   .listen(port);
 
@@ -94,8 +126,8 @@ function recordNewPosts() {
            , { method: 'GET', depends_on: 'NTDTelevision', relative_url: '?ids={result=NTDTelevision:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
            ,{ method: 'GET', relative_url: '/363765800431935/posts', name: 'ViralThread' }
            , { method: 'GET', depends_on: 'ViralThread', relative_url: '?ids={result=ViralThread:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
-           ,{ method: 'GET', relative_url: '/21785951839/posts', name: '9GAG' }
-           , { method: 'GET', depends_on: '9GAG', relative_url: '?ids={result=9GAG:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
+           ,{ method: 'GET', relative_url: '/21785951839/posts', name: 'NineGAG' }
+           , { method: 'GET', depends_on: 'NineGAG', relative_url: '?ids={result=NineGAG:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
            ,{ method: 'GET', relative_url: '/334191996715482/posts', name: 'TheDodo' }
            , { method: 'GET', depends_on: 'TheDodo', relative_url: '?ids={result=TheDodo:$.data.*.id}&fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
 
@@ -119,7 +151,7 @@ function recordNewPosts() {
                       pageName='ViralThread';
                       break;
                   case 9:
-                      pageName='9GAG';
+                      pageName='NineGAG';
                       break;
                   case 11:
                       pageName='TheDodo';
@@ -134,12 +166,10 @@ function recordNewPosts() {
                     var resID = resObj[property].id;
                     var postObj = resObj[property];
                     // console.log(resID + pageName);
-                    if (resID!="empty" && resID!=undefined && resID!=null) {
-                    //  var readQuery = "SELECT EXISTS(SELECT postId FROM activePostsMetaData WHERE postId='"+resID+"')";
+                    // if (resID!="empty" && resID!=undefined && resID!=null)
                       var readQuery = "SELECT trackingStatus FROM activePostsMetaData WHERE postId='"+resID+"'";
                     // console.log(readQuery);
-                      checkIfNewPost(readQuery, postObj, function (trackingStatus, postObj, pageName) {parseData(trackingStatus, postObj, pageName);}, pageName);
-                    }
+                      checkIfNewPost(readQuery, postObj, function (trackingStatus, postObj, pageName) {savePostInfo(trackingStatus, postObj, pageName);}, pageName);
                   }
                 }
           }
@@ -148,102 +178,10 @@ function recordNewPosts() {
 
 }
 
-function parseData (trackingStatus, postObj, pageName) {
-                  var parsedObj = {id:'', shares:0, likes:0, comments: 0, created_time:'', link:'', message:''};
-                  var emailData = [];
-                  // console.log(postObj);
-                  if (postObj!=undefined) {
-                  //  console.log("id: " + postObj.id);
-                    parsedObj.id = postObj.id;
-                  }
-                  else {
-                  //  console.log("id: " +"null");
-                    parsedObj.id = "empty";
-                  }
-
-                  if (postObj.shares!=undefined) {
-                  //  console.log("shares: " + postObj.shares.count);
-                    parsedObj.shares = postObj.shares.count;
-                    if (parseInt(postObj.shares.count) > 80000) {
-                      emailData.push(" shares: " + postObj.shares.count);
-                    }
-                  }
-                  else {
-                  //  console.log("shares: " +"null");
-                    parsedObj.shares = null;
-                  }
-
-                  if (postObj.likes.summary!=undefined) {
-                  //  console.log("likes: " + postObj.likes.summary.total_count);
-                    parsedObj.likes = postObj.likes.summary.total_count;
-                    if (parseInt(postObj.likes.summary.total_count) > 100000) {
-                      emailData.push(" likes: " + postObj.likes.summary.total_count);
-                    }
-                  }
-                  else {
-                  //  console.log("likes: " +"null");
-                    parsedObj.likes = null;
-                  }
-
-                  if (postObj.comments.summary!=undefined) {
-                  //  console.log("comments: "+postObj.comments.summary.total_count);
-                      parsedObj.comments=postObj.comments.summary.total_count;
-                    if (parseInt(postObj.comments.summary.total_count) > 50000) {
-                      emailData.push(" comments: "+postObj.comments.summary.total_count);
-                    }
-                  }
-                  else {
-                  //  console.log("comments: " +"null");
-                    parsedObj.comments=null;
-                  }
-
-                  if (postObj!=undefined) {
-                  //  console.log("link: "+postObj.link);
-                    parsedObj.link=postObj.link;
-                    if (emailData.length > 0) {
-                      emailData.push(" link: "+postObj.link);
-                    }
-                  }
-                  else {
-                //    console.log("link: " +"null");
-                  parsedObj.link=null;
-                  }
-                  if (postObj!=undefined) {
-                  //  console.log("created time: " + postObj.created_time);
-                    parsedObj.created_time=postObj.created_time;
-                    if (emailData.length > 0) {
-                      emailData.push(" created time: " + postObj.created_time);
-                    }
-                  }
-                  else {
-                  //  console.log("created time: " +"null");
-                    parsedObj.created_time=null;
-                  }
-                  if (postObj!=undefined) {
-                  //  console.log("message: " + postObj.message);
-                    parsedObj.message=postObj.message;
-                    if (emailData.length > 0) {
-                      emailData.push(" message: " + postObj.message);
-                    }
-                  }
-                  else {
-                  //  console.log("message: " +"null");
-                  parsedObj.message=null;
-                  }
-                //  console.log("next");
-                if (emailData.length > 0) {
-                  // sendEmail(emailData);
-                  // console.log(emailData);
-                  // console.log(parsedObj);
-                  // console.log(pageName);
-                }
-              /*  fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/testOutput-delete6.txt", JSON.stringify(emailData)+"\n"+JSON.stringify(parsedObj)+"\n\n", function(err) {
-                       if(err) { return console.log(err); }
-                       console.log("The file was saved!");
-                   }); */
-
+function savePostInfo (trackingStatus, postObj, pageName) {
+    var parsedObj = returnParsedObject (postObj);
         if (!trackingStatus) {
-          var query2 = "INSERT INTO activePostsMetaData (pageName, postId, createdTime, message, link, trackingStatus) VALUES (?, ?, ? , ?, ?, 0)";
+          var query2 = "INSERT INTO activePostsMetaData (pageName, postId, createdTime, message, link, trackingStatus) VALUES (?, ?, ? , ?, ?, 1)";
           var queryParameters2 = [pageName, parsedObj.id, parsedObj.created_time, parsedObj.message, parsedObj.link];
         }
         else if (trackingStatus >= timeTrackingCodes.week4) {
@@ -272,38 +210,35 @@ function getPages() {
                             fields: 'name,id,fan_count'
                           },
                           function (response){
-                              console.log(response);
+                              // console.log(response);
                           }
     ), {scope: 'publish_actions'};
 }
 
-function terminateApp () {
-  setInterval (function () {
-    con.query("SELECT pageName FROM postMetaData WHERE link = 'testLink'", function (err, result) {
-        console.log(result[0].pageName);
-          if (result[0].pageName=="testPage") {
-            console.log('App Terminated successfully');
-            process.exit();
-        }
-      });
-  }, 5000);
-}
+function sendEmail (postObj) {
+  var parsedObj = returnParsedObject (postObj);
+  var emailData = [];
 
-function sendEmail (emailData) {
-  console.log(emailData);
-  var mailOptions = {
-    from: 'applepulpfiction@gmail.com',
-    to: 'applepulpfiction@gmail.com',
-    subject: 'potential vid',
-    text: ' ' + emailData
-  };
-  transporter.sendMail(mailOptions, function(error, info){
-    if (error) {
-      console.log(error);
-    } else {
-      console.log('Email sent: ' + info.response);
-    }
-  });
+    if ((parseInt(parsedObj.shares) > 80000) || (parseInt(parsedObj.likes) > 100000) || (parseInt(parsedObj.comments) > 40000) )
+    {
+      emailData.push(" shares: " + parsedObj.shares, " likes: " + parsedObj.likes,
+      " comments: "+parsedObj.comments, " created time: " + parsedObj.created_time, " message: " + parsedObj.message,
+      " link: "+parsedObj.link);
+
+    var mailOptions = {
+      from: 'applepulpfiction@gmail.com',
+      to: 'applepulpfiction@gmail.com',
+      subject: 'potential vid',
+      text: ' ' + emailData
+    };
+    transporter.sendMail(mailOptions, function(error, info){
+      if (error) {
+        console.log(error);
+      } else {
+        // console.log('Email sent: ' + info.response);
+      }
+    });
+  }
 }
 
 function checkIfNewPost(query, postObj, callback, pageName) {
@@ -316,76 +251,100 @@ function checkIfNewPost(query, postObj, callback, pageName) {
         else {
           trackingStatus = 0;
         }
-
-        callback(trackingStatus, postObj, pageName);
-
+        if (trackingStatus<timeTrackingCodes.hour1) {
+          callback(trackingStatus, postObj, pageName);
+        }
     });
 }
 
 function getAllTrackedPosts(callback) {
   con.query('SELECT postId, createdTime, trackingStatus, pageName FROM activePostsMetaData', function (err, result) {
-      //console.log(result[0][Object.keys(result[0])[0]]);
-     // console.log(result);
-    // console.log(result.length);
-      // console.log(trackedPostsArray);
-      callback(result);
+    //  console.log(result[0][Object.keys(result[0])[0]]);
+      if ((result[0][Object.keys(result[0])[2]] == -100) || (result[1][Object.keys(result[0])[2]] == -100)) {
+        console.log('App Terminated successfully');
+        process.exit();
+      }
+      for (var i=0; i<result.length; i++) {
+        callback(result, i);
+      }
     });
 }
 
 // in the following updateExistingPosts function 0 - postId, 1-createdTime, 2-trackingStatus, 3-pageName
-function updateExistingPosts(trackedPostsArray) {
-  for (var i=0; i<trackedPostsArray.length; i++) {
-    var postId = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[0]];
-    var createdTime = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[1]];
-    var trackingStatus = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[2]];
-    var pageName = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[3]];
-    var timeNow = new Date();
-    var time1 = new Date(createdTime);
-    var time2 = new Date(timeNow);
-    // console.log(Math.floor((time2 - time1)/(1000*60*60*24)));
-  /*  switch(trackingStatus) {
-      case 81:
-          getUpdate='UNILAD';
-          break;
-      case 82:
-          pageName='LADbible';
-          break;
-      case 83:
-          pageName='NTDTelevision';
-          break;
-      case 84:
-          pageName='ViralThread';
-          break;
-      case 85:
-          pageName='9GAG';
-          break;
-      case 86:
-          pageName='TheDodo';
-          break;
-      case 86:
-          pageName='TheDodo';
-          break;
-      default:
-          break;
-  }*/
-
+function updateExistingPosts(trackedPostsArray, i) {
+  // console.log(i);
     newReq.facebook.api('', 'POST', {
           batch: [
-              { method: 'GET', relative_url: postId+'?fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
+              { method: 'GET', relative_url: trackedPostsArray[i][Object.keys(trackedPostsArray[0])[0]]+'?fields=id,shares,likes.summary(true).limit(0),comments.summary(true).limit(0),link,created_time,message' }
           ]
       },
         function (response){
           //  console.log(response);
+          //console.log(updatePostNow);
+          // console.log(postAgeInDays);
+          var postId = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[0]];
+          var createdTime = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[1]];
+          var trackingStatus = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[2]];
+          var pageName = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[3]];
+          var timeNow = new Date();
+          var time1 = new Date(createdTime);
+          var time2 = new Date(timeNow);
+          var postAgeInDays = Math.floor((time2 - time1)/(1000*60*60*24));
+          var updatePostNow = false;
+          // console.log(Math.floor((time2 - time1)/(1000*60*60*24)));
+          if ((trackingStatus >=timeTrackingCodes.hour1) && (trackingStatus<timeTrackingCodes.day1)) {
+            updatePostNow = true;
+          }
+        switch(trackingStatus) {
+            case timeTrackingCodes.day2:
+              if (postAgeInDays>1) {
+                 updatePostNow = true;
+              }
+                break;
+            case timeTrackingCodes.day4:
+              if (postAgeInDays>3) {
+                 updatePostNow = true;
+              }
+                break;
+            case timeTrackingCodes.week1:
+              if (postAgeInDays>6) {
+                 updatePostNow = true;
+              }
+                break;
+            case timeTrackingCodes.week2:
+              if (postAgeInDays>13) {
+                 updatePostNow = true;
+              }
+                break;
+            case timeTrackingCodes.week3:
+              if (postAgeInDays>20) {
+                 updatePostNow = true;
+              }
+                break;
+            case timeTrackingCodes.week4:
+              if (postAgeInDays>27) {
+                 updatePostNow = true;
+              }
+                break;
+            default:
+                break;
+          }
+
+        //  console.log(createdTime+" "+postId+" "+trackingStatus);
+
+            if (updatePostNow) {
                 var postObj = JSON.parse(response[0].body);
-                //  console.log(postObj);
-                //  console.log("\n"+postId+" "+createdTime+" "+trackingStatus+" "+pageName);
-                      if (postId!="empty" && postId!=undefined && postId!=null) {
-                        var readQuery = "SELECT trackingStatus FROM activePostsMetaData WHERE postId='"+postId+"'";
-                        checkIfNewPost(readQuery, postObj, function (trackingStatus, postObj, pageName) {parseData(trackingStatus, postObj, pageName);}, pageName);
-                      }
+                  // console.log(postObj);
+                  /*  fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/testOutput-delete7.txt", JSON.stringify(postObj)+"\n", function(err) {
+                       if(err) { return console.log(err); }
+                       // console.log("The file was saved!");
+                   }); */
+                  // console.log("\n"+postId+" "+createdTime+" "+trackingStatus+" "+pageName+" "+updatePostNow);
+                savePostInfo(trackingStatus, postObj, pageName);
+                 sendEmail (postObj);
+            }
         }
       ), {scope: 'publish_actions'};
-  }
 }
 
 function writeDB (query, queryParameters) {
@@ -395,10 +354,59 @@ function writeDB (query, queryParameters) {
   /*use ?? for variable identifiers and not string values themselves - https://stackoverflow.com/questions/30829878/variable-as-table-name-in-node-js-mysql */
   con.query(query, queryParameters, function (err, result) {
     if (err) throw err;
-    console.log("1 record inserted");
+    // console.log("1 record inserted");
   });
 }
-/*var time1 = new Date('2017-06-22 09:23:44');
-var time2 = new Date('2017-06-23 10:23:44');
-console.log(Math.floor((time2 - time1)/(1000*60*60*24))); */
+
+function returnParsedObject (postObj) {
+  var parsedObj = {id:'', shares:0, likes:0, comments: 0, created_time:'', link:'', message:''};
+  if (postObj!=undefined) {
+    parsedObj.id = postObj.id;
+  }
+  else {
+    parsedObj.id = "empty";
+  }
+
+  if (postObj.shares!=undefined) {
+    parsedObj.shares = postObj.shares.count;
+  }
+  else {
+    parsedObj.shares = null;
+  }
+
+  if (postObj.likes.summary!=undefined) {
+    parsedObj.likes = postObj.likes.summary.total_count;
+  }
+  else {
+    parsedObj.likes = null;
+  }
+
+  if (postObj.comments.summary!=undefined) {
+      parsedObj.comments=postObj.comments.summary.total_count;
+  }
+  else {
+    parsedObj.comments=null;
+  }
+
+  if (postObj!=undefined) {
+    parsedObj.link=postObj.link;
+  }
+  else {
+  parsedObj.link=null;
+  }
+  if (postObj!=undefined) {
+    parsedObj.created_time=postObj.created_time;
+  }
+  else {
+    parsedObj.created_time=null;
+  }
+  if (postObj!=undefined) {
+    parsedObj.message=postObj.message;
+  }
+  else {
+  parsedObj.message=null;
+  }
+  return parsedObj;
+}
+
 console.log('Listening for http requests on port ' + port);
