@@ -111,8 +111,16 @@ connect()
     // setInterval (function () {recordNewPosts();}, initialMonitorTimeInterval);
     // setInterval (function () {getAllTrackedPosts(function (trackedPostsArray) {updateExistingPosts(trackedPostsArray);});}, postDay1TimeInterval);
     // getAllTrackedPosts(function (trackedPostsArray, index) { updateExistingPosts(trackedPostsArray, index);});
+  try {
    setIntervalSynchronous (function () {recordNewPosts();}, initialMonitorTimeInterval);
    setIntervalSynchronous (function () {getAllTrackedPosts(function (trackedPostsArray, index) {updateExistingPosts(trackedPostsArray, index);});}, postDay1TimeInterval);
+ }
+  catch(err) {
+    fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/app-testlog.txt", "error: "+err.message, function(err) {
+       if(err) { return console.log(err); }
+       // console.log("The file was saved!");
+   });
+  }
   })
   .listen(port);
 
@@ -178,9 +186,13 @@ function recordNewPosts() {
                      // console.log(resID + pageName);
                      postsCount++;
                     // if (resID!="empty" && resID!=undefined && resID!=null)
-                      var readQuery = "SELECT trackingStatus FROM activePostsMetaData WHERE postId='"+resID+"'";
+                      var readQuery = "SELECT trackingStatus FROM activePostsMetaData3 WHERE postId='"+resID+"'";
                     // console.log(readQuery);
                       checkIfNewPost(readQuery, postObj, function (trackingStatus, postObj, pageName) {savePostInfo(trackingStatus, postObj, pageName);}, pageName);
+                      fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/app-testlog.txt", "recordNewPosts function postObj: "+JSON.stringify(postObj)+"\n"+"trackedPostsArray: "+"readQuery: "+readQuery+"\n"+"pageName: "+pageName+"\n", function(err) {
+                         if(err) { return console.log(err); }
+                         // console.log("The file was saved!");
+                     });
                   }
                 }
           }
@@ -192,11 +204,11 @@ function recordNewPosts() {
 function savePostInfo (trackingStatus, postObj, pageName) {
     var parsedObj = returnParsedObject (postObj);
         if (!trackingStatus) {
-          var query2 = "INSERT INTO activePostsMetaData (pageName, postId, createdTime, message, link, trackingStatus) VALUES (?, ?, ? , ?, ?, 1)";
+          var query2 = "INSERT INTO activePostsMetaData3 (pageName, postId, createdTime, message, link, trackingStatus) VALUES (?, ?, ? , ?, ?, 1)";
           var queryParameters2 = [pageName, parsedObj.id, parsedObj.created_time, parsedObj.message, parsedObj.link];
         }
         else if (trackingStatus >= timeTrackingCodes.week4) {
-          var query2 = "DELETE FROM activePostsMetaData WHERE postId = ?";
+          var query2 = "DELETE FROM activePostsMetaData3 WHERE postId = ?";
           var queryParameters2 = [parsedObj.id];
           writeDB(query2, queryParameters2);
 
@@ -206,14 +218,18 @@ function savePostInfo (trackingStatus, postObj, pageName) {
           return;
         }
         else if (trackingStatus < timeTrackingCodes.week4) {
-          var query2 = "UPDATE activePostsMetaData SET trackingStatus = ? WHERE postId = ?";
+          var query2 = "UPDATE activePostsMetaData3 SET trackingStatus = ? WHERE postId = ?";
           var queryParameters2 = [trackingStatus+1, parsedObj.id];
         }
         var query1 = "INSERT INTO ?? (postId, recordTime, shares, likes, comments) VALUES (?, ?, ?, ?, ?)";
         var timeNow = new Date();
-        var queryParameters1 = [pageName, parsedObj.id, timeNow, parsedObj.shares, parsedObj.likes, parsedObj.comments];
+        var queryParameters1 = [pageName+'3', parsedObj.id, timeNow, parsedObj.shares, parsedObj.likes, parsedObj.comments];
         writeDB(query1, queryParameters1);
         writeDB(query2, queryParameters2);
+        fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/app-testlog.txt", "savePostInfo function: \n trackingStatus: "+JSON.stringify(trackingStatus)+"\n postObj: "+JSON.stringify(postObj)+"\n pageName: "+pageName+"\n", function(err) {
+           if(err) { return console.log(err); }
+           // console.log("The file was saved!");
+       });
 }
 
 function getPages() {
@@ -230,7 +246,7 @@ function sendEmail (postObj) {
   var parsedObj = returnParsedObject (postObj);
   var emailData = [];
 
-    if ((parseInt(parsedObj.shares) > 80000) || (parseInt(parsedObj.likes) > 100000) || (parseInt(parsedObj.comments) > 80000) )
+    if ((parseInt(parsedObj.shares) > 20000) || (parseInt(parsedObj.likes) > 30000) || (parseInt(parsedObj.comments) > 10000) )
     {
       emailData.push(" shares: " + parsedObj.shares, " likes: " + parsedObj.likes,
       " comments: "+parsedObj.comments, " created time: " + parsedObj.created_time, " message: " + parsedObj.message,
@@ -247,6 +263,10 @@ function sendEmail (postObj) {
         console.log(error);
       } else {
         // console.log('Email sent: ' + info.response);
+        fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/app-testlog.txt", "sendMail function: \n"+info.response+"\n", function(err) {
+           if(err) { return console.log(err); }
+           // console.log("The file was saved!");
+       });
       }
     });
   }
@@ -265,11 +285,15 @@ function checkIfNewPost(query, postObj, callback, pageName) {
         if (trackingStatus<timeTrackingCodes.hour1) {
           callback(trackingStatus, postObj, pageName);
         }
+        fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/app-testlog.txt", "checkIfNewPost function: \n + result: "+JSON.stringify(result)+"\n", function(err) {
+           if(err) { return console.log(err); }
+           // console.log("The file was saved!");
+       });
     });
 }
 
 function getAllTrackedPosts(callback) {
-  con.query('SELECT postId, createdTime, trackingStatus, pageName FROM activePostsMetaData', function (err, result) {
+  con.query('SELECT postId, createdTime, trackingStatus, pageName FROM activePostsMetaData3', function (err, result) {
     //  console.log(result[0][Object.keys(result[0])[0]]);
       if ((result[0][Object.keys(result[0])[2]] == -100) || (result[1][Object.keys(result[0])[2]] == -100)) {
         console.log('App Terminated successfully');
@@ -278,6 +302,10 @@ function getAllTrackedPosts(callback) {
       for (var i=0; i<result.length; i++) {
         callback(result, i);
       }
+      fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/app-testlog.txt", "getAllTrackedPosts function: \n + result: "+JSON.stringify(result)+"\n", function(err) {
+         if(err) { return console.log(err); }
+         // console.log("The file was saved!");
+     });
     });
 }
 
@@ -342,14 +370,14 @@ function updateExistingPosts(trackedPostsArray, i) {
           }
 
         //  console.log(createdTime+" "+postId+" "+trackingStatus);
+          fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/app-testlog.txt", "updateExistingPosts function, postObj: "+JSON.stringify(postObj)+"\n"+"trackedPostsArray: "+JSON.stringify(trackedPostsArray)+"\n"+"index: "+i+"\n"+"trackingStatus: "+trackingStatus+"\n"+"pageName: "+pageName+"\n", function(err) {
+             if(err) { return console.log(err); }
+             // console.log("The file was saved!");
+         });
 
             if (updatePostNow) {
                 var postObj = JSON.parse(response[0].body);
                   // console.log(postObj);
-                  /*  fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/testOutput-delete7.txt", JSON.stringify(postObj)+"\n", function(err) {
-                       if(err) { return console.log(err); }
-                       // console.log("The file was saved!");
-                   }); */
                   // console.log("\n"+postId+" "+createdTime+" "+trackingStatus+" "+pageName+" "+updatePostNow);
                 savePostInfo(trackingStatus, postObj, pageName);
                  sendEmail (postObj);
@@ -363,6 +391,10 @@ function writeDB (query, queryParameters) {
   if more than one variable, then use multiple question marks and then replace the second paramter of the con.query method with an array
   - see https://stackoverflow.com/questions/41168942/how-to-input-a-nodejs-variable-into-an-sql-qyery for more details */
   /*use ?? for variable identifiers and not string values themselves - https://stackoverflow.com/questions/30829878/variable-as-table-name-in-node-js-mysql */
+  fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/app-testlog.txt", "writeDB function: "+"query: "+query+"\n"+"queryParameters: "+queryParameters+"\n", function(err) {
+     if(err) { return console.log(err); }
+     // console.log("The file was saved!");
+ });
   con.query(query, queryParameters, function (err, result) {
     if (err) throw err;
     // console.log("1 record inserted");
@@ -419,7 +451,14 @@ function returnParsedObject (postObj) {
     parsedObj.likes = null;
     parsedObj.comments=null;
   }
-  
+
+
+
+
+  fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/app-testlog.txt", "parsedObjfunction, parsedObj: "+JSON.stringify(parsedObj)+"\n", function(err) {
+     if(err) { return console.log(err); }
+     // console.log("The file was saved!");
+ });
   return parsedObj;
 }
 
