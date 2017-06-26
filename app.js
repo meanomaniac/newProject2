@@ -112,7 +112,7 @@ connect()
     // setInterval (function () {getAllTrackedPosts(function (trackedPostsArray) {updateExistingPosts(trackedPostsArray);});}, postDay1TimeInterval);
     // getAllTrackedPosts(function (trackedPostsArray, index) { updateExistingPosts(trackedPostsArray, index);});
    setIntervalSynchronous (function () {recordNewPosts();}, initialMonitorTimeInterval);
-   // setIntervalSynchronous (function () {getAllTrackedPosts(function (trackedPostsArray) {updateExistingPosts(trackedPostsArray);});}, postDay1TimeInterval);
+   setIntervalSynchronous (function () {getAllTrackedPosts(function (trackedPostsArray, index) {updateExistingPosts(trackedPostsArray, index);});}, postDay1TimeInterval);
   })
   .listen(port);
 
@@ -137,8 +137,6 @@ function recordNewPosts() {
     },
       function (response){
         //  console.log(response);
-        var timeNow = new Date();
-        console.log(timeNow);
           var pageName;
         for (var i=1; i<12; i=i+2) {
                 switch(i) {
@@ -437,5 +435,5 @@ var setIntervalSynchronous = function (func, delay) {
   // You should capture the returned function for clearing.
   return clear;
 };
-console.log('using build from 6/25/17 7:51 PM');
+console.log('using build from 6/26/17 1:23 AM');
 console.log('Listening for http requests on port ' + port);
