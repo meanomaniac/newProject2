@@ -9,7 +9,7 @@
   "author": "",
   "repository": {
     "type": "git",
-    "url": "https://github.com/meanomaniac/newProject"
+    "url": "https://github.com/meanomaniac/newProject2"
   },
   "dependencies": {
     "connect": "1.4.1",
@@ -17,12 +17,7 @@
     "mysql": "^2.13.0",
     "nodemailer": "^4.0.1"
   },
-  "licenses": [
-    {
-      "type": "Apache License, Version 2.0",
-      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
-    }
-  ],
+  "licenses": "MIT",
   "engines": {
     "node": ">= 6.0.0"
   }

@@ -1,7 +1,7 @@
 /* This program gathers social media data (likes, shares, comments) of videos from 6 of the top Video publishers in facebook at
 specific time intervals using Facebook's Graph API (specifically using the batch command to get a lot of data within a single http
-request). This is done by collecting the likes, shares, comments of the last 3 published videos of UNILAD, LADbible, NTDTelevision,
-TheDodo, 9GAG and the ViralThread. The time intervals are:
+request). This is done by collecting the likes, shares, comments of the last few published videos of UNILAD, LADbible, NTDTelevision,
+TheDodo, 9GAG and the ViralThread (5 for NTDTelevision and 3 for rest). The time intervals are:
 1) every 30 seconds (can change - see the variable postDay1TimeInterval) in the first
 30 minutes of a new video's publication, 2) then once every hour for the first day 3) 2nd day, 4) 4th day 5) 1 week 6) 2nd week
 7) 3rd week 4) 4th week
@@ -112,7 +112,7 @@ connect()
     // setInterval (function () {getAllTrackedPosts(function (trackedPostsArray) {updateExistingPosts(trackedPostsArray);});}, postDay1TimeInterval);
     // getAllTrackedPosts(function (trackedPostsArray, index) { updateExistingPosts(trackedPostsArray, index);});
    setIntervalSynchronous (function () {recordNewPosts();}, initialMonitorTimeInterval);
-   setIntervalSynchronous (function () {getAllTrackedPosts(function (trackedPostsArray) {updateExistingPosts(trackedPostsArray);});}, postDay1TimeInterval);
+   // setIntervalSynchronous (function () {getAllTrackedPosts(function (trackedPostsArray) {updateExistingPosts(trackedPostsArray);});}, postDay1TimeInterval);
   })
   .listen(port);
 
@@ -166,8 +166,15 @@ function recordNewPosts() {
               var resObj = JSON.parse(response[i].body);
               // console.log(resObj);
               var postsCount = 0;
+              var maxPostsCount;
+              if (pageName == 'NTDTelevision') {
+                maxPostsCount = 5;
+              }
+              else {
+                maxPostsCount = 3;
+              }
                 for (var property in resObj) {
-                  if (resObj.hasOwnProperty(property) && postsCount <3) {
+                  if (resObj.hasOwnProperty(property) && postsCount < maxPostsCount) {
                     var resID = resObj[property].id;
                     var postObj = resObj[property];
                      // console.log(resID + pageName);
