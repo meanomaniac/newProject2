@@ -303,7 +303,7 @@ function updateExistingPosts(trackedPostsArray, i) {
           var postAgeInDays = Math.floor((time2 - time1)/(1000*60*60*24));
           var updatePostNow = false;
           // console.log(Math.floor((time2 - time1)/(1000*60*60*24)));
-          if ((trackingStatus >=timeTrackingCodes.hour1) && (trackingStatus<timeTrackingCodes.day1)) {
+          if ((trackingStatus >=timeTrackingCodes.hour1) && (trackingStatus<=timeTrackingCodes.day1)) {
             updatePostNow = true;
           }
         switch(trackingStatus) {
@@ -419,7 +419,7 @@ function returnParsedObject (postObj) {
     parsedObj.likes = null;
     parsedObj.comments=null;
   }
-  
+
   return parsedObj;
 }
 
