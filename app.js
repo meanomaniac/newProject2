@@ -113,7 +113,7 @@ connect()
     // getAllTrackedPosts(function (trackedPostsArray, index) { updateExistingPosts(trackedPostsArray, index);});
     console.log('App started');
    setIntervalSynchronous (function () {recordNewPosts();}, initialMonitorTimeInterval);
-   setIntervalSynchronous (function () {getAllTrackedPosts(function (trackedPostsArra`y, index) {updateExistingPosts(trackedPostsArray, index);});}, postDay1TimeInterval);
+   setIntervalSynchronous (function () {getAllTrackedPosts(function (trackedPostsArray, index) {updateExistingPosts(trackedPostsArray, index);});}, postDay1TimeInterval);
   })
   .listen(port);
 
