@@ -111,8 +111,9 @@ connect()
     // setInterval (function () {recordNewPosts();}, initialMonitorTimeInterval);
     // setInterval (function () {getAllTrackedPosts(function (trackedPostsArray) {updateExistingPosts(trackedPostsArray);});}, postDay1TimeInterval);
     // getAllTrackedPosts(function (trackedPostsArray, index) { updateExistingPosts(trackedPostsArray, index);});
+    console.log('App started');
    setIntervalSynchronous (function () {recordNewPosts();}, initialMonitorTimeInterval);
-   setIntervalSynchronous (function () {getAllTrackedPosts(function (trackedPostsArray, index) {updateExistingPosts(trackedPostsArray, index);});}, postDay1TimeInterval);
+   setIntervalSynchronous (function () {getAllTrackedPosts(function (trackedPostsArra`y, index) {updateExistingPosts(trackedPostsArray, index);});}, postDay1TimeInterval);
   })
   .listen(port);
 
@@ -139,50 +140,52 @@ function recordNewPosts() {
         //  console.log(response);
           var pageName;
         for (var i=1; i<12; i=i+2) {
-                switch(i) {
-                  case 1:
-                      pageName='UNILAD';
-                      break;
-                  case 3:
-                      pageName='LADbible';
-                      break;
-                  case 5:
-                      pageName='NTDTelevision';
-                      break;
-                  case 7:
-                      pageName='ViralThread';
-                      break;
-                  case 9:
-                      pageName='NineGAG';
-                      break;
-                  case 11:
-                      pageName='TheDodo';
-                      break;
-                  default:
-                      break;
-              }
-              var resObj = JSON.parse(response[i].body);
-              // console.log(resObj);
-              var postsCount = 0;
-              var maxPostsCount;
-              if (pageName == 'NTDTelevision') {
-                maxPostsCount = 5;
-              }
-              else {
-                maxPostsCount = 3;
-              }
-                for (var property in resObj) {
-                  if (resObj.hasOwnProperty(property) && postsCount < maxPostsCount) {
-                    var resID = resObj[property].id;
-                    var postObj = resObj[property];
-                     // console.log(resID + pageName);
-                     postsCount++;
-                    // if (resID!="empty" && resID!=undefined && resID!=null)
-                      var readQuery = "SELECT trackingStatus FROM activePostsMetaData WHERE postId='"+resID+"'";
-                    // console.log(readQuery);
-                      checkIfNewPost(readQuery, postObj, function (trackingStatus, postObj, pageName) {savePostInfo(trackingStatus, postObj, pageName);}, pageName);
-                  }
+            if (response[i] != undefined) {
+                  switch(i) {
+                    case 1:
+                        pageName='UNILAD';
+                        break;
+                    case 3:
+                        pageName='LADbible';
+                        break;
+                    case 5:
+                        pageName='NTDTelevision';
+                        break;
+                    case 7:
+                        pageName='ViralThread';
+                        break;
+                    case 9:
+                        pageName='NineGAG';
+                        break;
+                    case 11:
+                        pageName='TheDodo';
+                        break;
+                    default:
+                        break;
                 }
+                var resObj = JSON.parse(response[i].body);
+                // console.log(resObj);
+                var postsCount = 0;
+                var maxPostsCount;
+                if (pageName == 'NTDTelevision') {
+                  maxPostsCount = 5;
+                }
+                else {
+                  maxPostsCount = 3;
+                }
+                  for (var property in resObj) {
+                    if (resObj.hasOwnProperty(property) && postsCount < maxPostsCount) {
+                      var resID = resObj[property].id;
+                      var postObj = resObj[property];
+                       // console.log(resID + pageName);
+                       postsCount++;
+                      // if (resID!="empty" && resID!=undefined && resID!=null)
+                        var readQuery = "SELECT trackingStatus FROM activePostsMetaData WHERE postId='"+resID+"'";
+                      // console.log(readQuery);
+                        checkIfNewPost(readQuery, postObj, function (trackingStatus, postObj, pageName) {savePostInfo(trackingStatus, postObj, pageName);}, pageName);
+                    }
+                  }
+              }
           }
       }
     ), {scope: 'publish_actions'};
@@ -290,69 +293,71 @@ function updateExistingPosts(trackedPostsArray, i) {
           ]
       },
         function (response){
-          //  console.log(response);
-          //console.log(updatePostNow);
-          // console.log(postAgeInDays);
-          var postId = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[0]];
-          var createdTime = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[1]];
-          var trackingStatus = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[2]];
-          var pageName = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[3]];
-          var timeNow = new Date();
-          var time1 = new Date(createdTime);
-          var time2 = new Date(timeNow);
-          var postAgeInDays = Math.floor((time2 - time1)/(1000*60*60*24));
-          var updatePostNow = false;
-          // console.log(Math.floor((time2 - time1)/(1000*60*60*24)));
-          if ((trackingStatus >=timeTrackingCodes.hour1) && (trackingStatus<=timeTrackingCodes.day1)) {
-            updatePostNow = true;
-          }
-        switch(trackingStatus) {
-            case timeTrackingCodes.day2:
-              if (postAgeInDays>1) {
-                 updatePostNow = true;
+          if (response != undefined) {
+              //  console.log(response);
+              //console.log(updatePostNow);
+              // console.log(postAgeInDays);
+              var postId = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[0]];
+              var createdTime = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[1]];
+              var trackingStatus = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[2]];
+              var pageName = trackedPostsArray[i][Object.keys(trackedPostsArray[0])[3]];
+              var timeNow = new Date();
+              var time1 = new Date(createdTime);
+              var time2 = new Date(timeNow);
+              var postAgeInDays = Math.floor((time2 - time1)/(1000*60*60*24));
+              var updatePostNow = false;
+              // console.log(Math.floor((time2 - time1)/(1000*60*60*24)));
+              if ((trackingStatus >=timeTrackingCodes.hour1) && (trackingStatus<=timeTrackingCodes.day1)) {
+                updatePostNow = true;
               }
-                break;
-            case timeTrackingCodes.day4:
-              if (postAgeInDays>3) {
-                 updatePostNow = true;
+            switch(trackingStatus) {
+                case timeTrackingCodes.day2:
+                  if (postAgeInDays>1) {
+                     updatePostNow = true;
+                  }
+                    break;
+                case timeTrackingCodes.day4:
+                  if (postAgeInDays>3) {
+                     updatePostNow = true;
+                  }
+                    break;
+                case timeTrackingCodes.week1:
+                  if (postAgeInDays>6) {
+                     updatePostNow = true;
+                  }
+                    break;
+                case timeTrackingCodes.week2:
+                  if (postAgeInDays>13) {
+                     updatePostNow = true;
+                  }
+                    break;
+                case timeTrackingCodes.week3:
+                  if (postAgeInDays>20) {
+                     updatePostNow = true;
+                  }
+                    break;
+                case timeTrackingCodes.week4:
+                  if (postAgeInDays>27) {
+                     updatePostNow = true;
+                  }
+                    break;
+                default:
+                    break;
               }
-                break;
-            case timeTrackingCodes.week1:
-              if (postAgeInDays>6) {
-                 updatePostNow = true;
-              }
-                break;
-            case timeTrackingCodes.week2:
-              if (postAgeInDays>13) {
-                 updatePostNow = true;
-              }
-                break;
-            case timeTrackingCodes.week3:
-              if (postAgeInDays>20) {
-                 updatePostNow = true;
-              }
-                break;
-            case timeTrackingCodes.week4:
-              if (postAgeInDays>27) {
-                 updatePostNow = true;
-              }
-                break;
-            default:
-                break;
-          }
 
-        //  console.log(createdTime+" "+postId+" "+trackingStatus);
+            //  console.log(createdTime+" "+postId+" "+trackingStatus);
 
-            if (updatePostNow) {
-                var postObj = JSON.parse(response[0].body);
-                  // console.log(postObj);
-                  /*  fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/testOutput-delete7.txt", JSON.stringify(postObj)+"\n", function(err) {
-                       if(err) { return console.log(err); }
-                       // console.log("The file was saved!");
-                   }); */
-                  // console.log("\n"+postId+" "+createdTime+" "+trackingStatus+" "+pageName+" "+updatePostNow);
-                savePostInfo(trackingStatus, postObj, pageName);
-                 sendEmail (postObj);
+                if (updatePostNow) {
+                    var postObj = JSON.parse(response[0].body);
+                      // console.log(postObj);
+                      /*  fs.appendFile("/Users/akhilkamma/Desktop/DEV/newProject2/testOutput-delete7.txt", JSON.stringify(postObj)+"\n", function(err) {
+                           if(err) { return console.log(err); }
+                           // console.log("The file was saved!");
+                       }); */
+                      // console.log("\n"+postId+" "+createdTime+" "+trackingStatus+" "+pageName+" "+updatePostNow);
+                    savePostInfo(trackingStatus, postObj, pageName);
+                     sendEmail (postObj);
+                }
             }
         }
       ), {scope: 'publish_actions'};
