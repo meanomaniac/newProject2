@@ -74,7 +74,9 @@ var con = mysql.createConnection({
 });
 
 con.connect(function(err) {
-  if (err) throw err;
+  if (err) {
+    console.log('Caught exception in connect to DB: ' + err);
+  }
   console.log("Connected to Database!");
 });
 
@@ -112,6 +114,9 @@ connect()
     // setInterval (function () {getAllTrackedPosts(function (trackedPostsArray) {updateExistingPosts(trackedPostsArray);});}, postDay1TimeInterval);
     // getAllTrackedPosts(function (trackedPostsArray, index) { updateExistingPosts(trackedPostsArray, index);});
     console.log('App started');
+    process.on('uncaughtException', function (err) {
+      console.log('Caught exception: ' + err);
+    });
    setIntervalSynchronous (function () {recordNewPosts();}, initialMonitorTimeInterval);
    setIntervalSynchronous (function () {getAllTrackedPosts(function (trackedPostsArray, index) {updateExistingPosts(trackedPostsArray, index);});}, postDay1TimeInterval);
   })
@@ -258,6 +263,9 @@ function sendEmail (postObj) {
 function checkIfNewPost(query, postObj, callback, pageName) {
   con.query(query, function (err, result) {
       //console.log(result[0][Object.keys(result[0])[0]]);
+      if (err) {
+        console.log('Caught exception in checkIfNewPost: ' + err);
+      }
       var trackingStatus;
        if (result.length!=0) {
          trackingStatus = result[0][Object.keys(result[0])[0]];
@@ -274,6 +282,9 @@ function checkIfNewPost(query, postObj, callback, pageName) {
 function getAllTrackedPosts(callback) {
   con.query('SELECT postId, createdTime, trackingStatus, pageName FROM activePostsMetaData', function (err, result) {
     //  console.log(result[0][Object.keys(result[0])[0]]);
+    if (err) {
+      console.log('Caught exception in getAllTrackedPosts: ' + err);
+    }
       if ((result[0][Object.keys(result[0])[2]] == -100) || (result[1][Object.keys(result[0])[2]] == -100)) {
         console.log('App Terminated successfully');
         process.exit();
@@ -356,7 +367,7 @@ function updateExistingPosts(trackedPostsArray, i) {
                        }); */
                       // console.log("\n"+postId+" "+createdTime+" "+trackingStatus+" "+pageName+" "+updatePostNow);
                     savePostInfo(trackingStatus, postObj, pageName);
-                     sendEmail (postObj);
+                    // sendEmail (postObj);
                 }
             }
         }
@@ -369,7 +380,9 @@ function writeDB (query, queryParameters) {
   - see https://stackoverflow.com/questions/41168942/how-to-input-a-nodejs-variable-into-an-sql-qyery for more details */
   /*use ?? for variable identifiers and not string values themselves - https://stackoverflow.com/questions/30829878/variable-as-table-name-in-node-js-mysql */
   con.query(query, queryParameters, function (err, result) {
-    if (err) throw err;
+    if (err) {
+      console.log('Caught exception in writeDB: ' + err);
+    }
     // console.log("1 record inserted");
   });
 }
